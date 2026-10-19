@@ -57,6 +57,8 @@ interface SlotState {
   variantId: string | null;
   transform: SlotTransform;
   albedo: THREE.Texture;
+  /** Contador de pedidos: uma textura que chega atrasada não sobrescreve a escolha mais nova. */
+  req: number;
 }
 
 const TONE_OPS = { standard: 0, aces: 1, agx: 2 } as const;
@@ -174,7 +176,7 @@ export class Compositor {
         const albedo = await this.albedoFor(option);
         const st: SlotState = {
           slot, option, variantId: option.tintVariants[0]?.id ?? null,
-          transform: { scale: 1, rotationDeg: 0, offset: [0, 0] }, albedo,
+          transform: { scale: 1, rotationDeg: 0, offset: [0, 0] }, albedo, req: 0,
         };
         this.slots.set(slot.id, st);
         const ch = { r: 0, g: 1, b: 2 }[slot.channel];
@@ -227,7 +229,9 @@ export class Compositor {
     if (!st) throw new Error(`slot desconhecido: ${slotId}`);
     const option = st.slot.options.find((o) => o.id === optionId);
     if (!option) throw new Error(`opção desconhecida: ${slotId}/${optionId}`);
+    const token = ++st.req;
     const albedo = await this.albedoFor(option);
+    if (token !== st.req) return;
     st.option = option;
     st.albedo = albedo;
     st.variantId =

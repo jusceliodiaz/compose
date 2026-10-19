@@ -25,3 +25,25 @@ Descobertas feitas durante a construção (versões, APIs que não se comportara
   do JSON, o LightMix é neutro e a imagem bate com o beauty.
 - `pack_uv.py <exr> <pasta>/` (prefixo terminado em barra) grava `uv_hi.png`, `uv_lo.png`, `uv_meta.json`.
 - `reconstruct_check.py`: PSNR calculado em linear com pico 1.0 (branco da tela).
+
+## Motor / web
+
+- **Orientação (regra 7):** o `EXRLoader` do three 0.186 grava as linhas de baixo para cima com
+  `flipY = false`; os PNGs usam `flipY = true` (padrão do `TextureLoader`). Resultado: mesma
+  orientação. Provado no e2e `orientação` (361 pontos de `probes.json`) e no teste do checker
+  (erro 3× menor que as hipóteses espelhadas/escala errada).
+- **Sampler arrays:** GLSL ES 3.00 só aceita índice constante em `sampler2D[]`; por isso os 3 albedos e
+  os 4 light groups são samplers separados, e o código por slot é chamado 3 vezes explicitamente.
+- **Derivadas:** `dFdx/dFdy` do UV são calculadas em fluxo uniforme (fora dos `if`) e transformadas
+  por slot (`R·(duv·S)`); a amostragem usa `textureGrad`. A GPU calcula derivadas em blocos 2×2,
+  então pixels na borda da máscara têm "derivada de costura" — o teste de costuras olha só pixels com
+  vizinhança 3×3 inteira dentro do piso.
+- **LightMix neutro:** quando todos os grupos estão no valor do JSON, o shader usa o beauty direto
+  (`u_lightMixOn = false`) — a identidade com o beauty fica exata, sem o erro de soma dos grupos.
+- **Modo debug 5 (albedo):** mostra só o albedo do slot 0 em sRGB, sem luz; usado no teste do checker.
+- **Escala no UI:** multiplicador sobre o tamanho físico (2× = textura 2× maior → `tiling / escala`).
+  Offset em frações de tile (0–1).
+- **Export:** sem `export_passes_prefix`, o PNG sai na resolução dos passes e a UI avisa que não é a
+  resolução nativa. Com prefixo, cada passe é carregado como `prefixo + nome_do_arquivo`.
+- Fontes da interface vêm do Google Fonts (Instrument Serif, Hanken Grotesk, IBM Plex Mono), com
+  fallback de sistema se estiver offline.

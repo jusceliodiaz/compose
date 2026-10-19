@@ -36,3 +36,32 @@ pytest tools
 ```
 
 No Windows, `abrir_configurador.bat` e `gerar_assets_teste.bat` fazem o mesmo com dois cliques.
+
+## Ver funcionando em 2 passos
+
+```bash
+python tools/make_test_assets.py   # gera a sala de teste + materiais + catálogo (~5 s)
+cd web && npm run dev              # abre http://localhost:5173
+```
+
+Na tela: a sala sintética com piso de carvalho. No painel da direita, troque o acabamento,
+a tonalidade, a escala/rotação e as luzes. Na barra de baixo: **Antes / depois** (arraste a
+cortina), **Grade de teste** (checker 1 m), **Copiar link** (a URL guarda tudo) e **Baixar imagem**.
+
+Atalhos: `C` comparador · `T` grade de teste · `D` painel de depuração (UV, máscaras, luz difusa,
+costuras, albedo e memória de GPU estimada).
+
+Os assets gerados não vão para o git (são reprodutíveis); rode o gerador depois de clonar.
+
+## Como funciona (resumo)
+
+| Peça | Arquivo |
+| :--- | :--- |
+| Shader de composição (WebGL2) | `web/src/engine/shaders/composite.frag.glsl` |
+| Motor (texturas, uniforms, render sob demanda) | `web/src/engine/Compositor.ts` |
+| Catálogo: tipos, validação, fallbacks | `web/src/catalog/schema.ts` |
+| Estado + URL + orçamento | `web/src/state/` |
+| Interface | `web/src/ui/` |
+| Export PNG | `web/src/engine/export.ts` |
+| Gerador da sala de teste | `tools/make_test_assets.py` |
+| Empacotar UV / máscaras, validar | `tools/pack_uv.py`, `pack_masks.py`, `reconstruct_check.py`, `validate_catalog.py` |

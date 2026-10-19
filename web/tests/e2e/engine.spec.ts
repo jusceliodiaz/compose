@@ -2,14 +2,11 @@ import { expect, test } from '@playwright/test';
 import { openApp, probes } from './helpers';
 
 // Funções que rodam dentro da página (sem transferir megabytes de pixels para o Node).
-declare global {
-  interface Window { __compose: any }
-}
 
 test('material original + LightMix neutro = beauty (diferença < 2/255)', async ({ page }) => {
   await openApp(page, '?floor=original');
   const r = await page.evaluate(async () => {
-    const c = window.__compose.compositor;
+    const c = (window as any).__compose.compositor;
     const [w, h] = c.passSize;
     const px: Uint8Array = c.renderToPixels(w, h);
     const blob = await (await fetch('assets/scenes/test_room/cam_main/beauty.webp')).blob();
@@ -38,7 +35,7 @@ test('orientação: UV decodificado e máscara batem com os pontos de referênci
   await openApp(page);
   const pts = await probes(page);
   const r = await page.evaluate((pts) => {
-    const c = window.__compose.compositor;
+    const c = (window as any).__compose.compositor;
     const [w, h] = c.passSize;
     const range = c.currentCamera.passes.uv.range as number[];
     c.setDebug(1);
@@ -65,7 +62,7 @@ test('checker: 1 tile por metro, sem espelhamento', async ({ page }) => {
   await openApp(page, '?floor=checker');
   const pts = (await probes(page)).filter((p) => p.mask && p.y > 1080 * 0.45);
   const r = await page.evaluate(async (pts) => {
-    const c = window.__compose.compositor;
+    const c = (window as any).__compose.compositor;
     const [w, h] = c.passSize;
     c.setDebug(5);
     const px: Uint8Array = c.renderToPixels(w, h);
@@ -116,7 +113,7 @@ test('checker: 1 tile por metro, sem espelhamento', async ({ page }) => {
 test('sem costuras: nenhum pixel interno do piso é marcado como costura', async ({ page }) => {
   await openApp(page, '?floor=checker');
   const seams = await page.evaluate(() => {
-    const c = window.__compose.compositor;
+    const c = (window as any).__compose.compositor;
     const [w, h] = c.passSize;
     c.setDebug(2);
     const m: Uint8Array = c.renderToPixels(w, h);
