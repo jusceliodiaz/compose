@@ -1,0 +1,4 @@
+numpy>=1.26
+# 5.0 do pip veio sem o escritor de OpenEXR (ver docs/NOTAS_IMPLEMENTACAO.md)
+opencv-python>=4.8,<5
+pytest>=8

@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurador 2.5D (Estilo Zytro / ZYcompose)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0e1117;
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(14, 17, 23, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #30363d;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo-badge {
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-badge span {
+      background: linear-gradient(135deg, #58a6ff, #a371f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .fps-pill {
+      font-size: 0.8rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      padding: 4px 10px;
+      border-radius: 20px;
+      color: #7ee787;
+    }
+    .main-layout {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 60px);
+    }
+    .viewport-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1b2028 0%, #0d1117 100%);
+      position: relative;
+      padding: 20px;
+    }
+    canvas {
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      border-radius: 8px;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border: 1px solid #30363d;
+    }
+    .sidebar {
+      width: 360px;
+      background: #161b22;
+      border-left: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 24px;
+      gap: 22px;
+    }
+    h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #8b949e;
+      margin-bottom: 10px;
+    }
+    .materials-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .mat-card {
+      background: #21262d;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .mat-card:hover {
+      background: #30363d;
+      border-color: #58a6ff;
+    }
+    .mat-card.active {
+      border-color: #a371f7;
+      background: #282e38;
+    }
+    .mat-preview {
+      width: 100%;
+      height: 60px;
+      border-radius: 4px;
+      background-size: cover;
+      background-position: center;
+    }
+    .mat-name {
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-align: center;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .slider-val {
+      font-family: monospace;
+      color: #58a6ff;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #a371f7;
+      cursor: pointer;
+    }
+    .btn-action {
+      background: linear-gradient(135deg, #238636, #2ea043);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+    .btn-action:hover { opacity: 0.9; }
+    .debug-tabs {
+      display: flex;
+      gap: 4px;
+      background: #0d1117;
+      padding: 4px;
+      border-radius: 6px;
+    }
+    .debug-tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      padding: 6px 2px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .debug-tab.active {
+      background: #30363d;
+      color: white;
+    }
+    .info-card {
+      background: rgba(88, 166, 255, 0.08);
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: #c9d1d9;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-badge">
+      ⚡ <span>ZYcompose Core</span> (2.5D Image Compositor)
+    </div>
+    <div class="fps-pill" id="fpsCounter">60 FPS • WebGL</div>
+  </header>
+
+  <div class="main-layout">
+    <!-- Viewport do Renderizador -->
+    <div class="viewport-container">
+      <canvas id="glCanvas" width="960" height="540"></canvas>
+    </div>
+
+    <!-- Barra Lateral de Controles -->
+    <div class="sidebar">
+      <div>
+        <h2>Modo de Exibição</h2>
+        <div class="debug-tabs">
+          <button class="debug-tab active" onclick="setViewMode(0)">Composição Final</button>
+          <button class="debug-tab" onclick="setViewMode(1)">Ver UV Pass</button>
+          <button class="debug-tab" onclick="setViewMode(2)">Ver Máscara</button>
+          <button class="debug-tab" onclick="setViewMode(3)">Ver Sombras</button>
+        </div>
+      </div>
+
+      <div>
+        <h2>Acabamento do Piso</h2>
+        <div class="materials-grid" id="materialsList">
+          <!-- Gerado via JavaScript -->
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h2>Ajuste de Textura (UV Transform)</h2>
+        
+        <div>
+          <div class="slider-row">
+            <span>Escala / Tiling</span>
+            <span class="slider-val" id="scaleVal">3.5x</span>
+          </div>
+          <input type="range" id="scaleSlider" min="1.0" max="10.0" step="0.1" value="3.5">
+        </div>
+
+        <div>
+          <div class="slider-row">
+            <span>Rotação</span>
+            <span class="slider-val" id="rotVal">0°</span>
+          </div>
+          <input type="range" id="rotSlider" min="0" max="360" step="1" value="0">
+        </div>
+
+        <div>
+          <div class="slider-row">
+            <span>Deslocamento (Offset)</span>
+            <span class="slider-val" id="offsetVal">0.0</span>
+          </div>
+          <input type="range" id="offsetSlider" min="0.0" max="1.0" step="0.01" value="0.0">
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h2>Iluminação da Cena (LightMix)</h2>
+        <div>
+          <div class="slider-row">
+            <span>Luz do Ambiente</span>
+            <span class="slider-val" id="lightVal">1.0x</span>
+          </div>
+          <input type="range" id="lightSlider" min="0.2" max="2.0" step="0.05" value="1.0">
+        </div>
+      </div>
+
+      <button class="btn-action" onclick="downloadRender()">
+        📸 Exportar Imagem em Alta Resolução
+      </button>
+
+      <div class="info-card">
+        💡 <strong>Como funciona aqui:</strong> O piso está em perspectiva real e sendo re-projetado via <em>Fragment Shader</em> lendo as coordenadas UV do mapa sem carregar nenhum modelo 3D!
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 1. SETUP DE TEXTURAS PROCEDURAIS PARA DEMO ---
+    function createWoodTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#b87d4b';
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.strokeStyle = '#8b5a2b';
+      ctx.lineWidth = 4;
+      for (let y = 0; y < 512; y += 64) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(512, y);
+        ctx.stroke();
+      }
+      for (let x = 0; x < 512; x += 128) {
+        ctx.fillStyle = 'rgba(0,0,0,0.06)';
+        ctx.fillRect(x, 0, 64, 512);
+      }
+      return c;
+    }
+
+    function createMarbleTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#e8eaed';
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.strokeStyle = 'rgba(100, 110, 120, 0.4)';
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 8; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, Math.random() * 512);
+        ctx.bezierCurveTo(150, Math.random()*512, 350, Math.random()*512, 512, Math.random()*512);
+        ctx.stroke();
+      }
+      return c;
+    }
+
+    function createHerringboneTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.strokeStyle = '#3e2713';
+      ctx.lineWidth = 3;
+      for (let i = -512; i < 1024; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0); ctx.lineTo(i + 512, 512);
+        ctx.moveTo(i + 512, 0); ctx.lineTo(i, 512);
+        ctx.stroke();
+      }
+      return c;
+    }
+
+    function createConcreteTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#5c636a';
+      ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 3000; i++) {
+        const v = Math.random() * 50;
+        ctx.fillStyle = `rgba(${v}, ${v}, ${v}, 0.15)`;
+        ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+      }
+      return c;
+    }
+
+    const MATERIALS = [
+      { id: 'wood_oak', name: 'Carvalho Natural', canvas: createWoodTexture() },
+      { id: 'marble', name: 'Mármore Carrara', canvas: createMarbleTexture() },
+      { id: 'herringbone', name: 'Espinha de Peixe', canvas: createHerringboneTexture() },
+      { id: 'concrete', name: 'Cimento Queimado', canvas: createConcreteTexture() },
+    ];
+
+    // --- 2. SINTETIZADOR DOS PASSES 3D (CENA BASE, UV E MÁSCARA) ---
+    // Simula a saída do Blender (piso em perspectiva trapezoidal, parede e cubo)
+    function generatePasses(w, h) {
+      const baseCanvas = document.createElement('canvas');
+      const uvCanvas = document.createElement('canvas');
+      const maskCanvas = document.createElement('canvas');
+      const shadowCanvas = document.createElement('canvas');
+
+      [baseCanvas, uvCanvas, maskCanvas, shadowCanvas].forEach(c => { c.width = w; c.height = h; });
+
+      const bCtx = baseCanvas.getContext('2d');
+      const uvCtx = uvCanvas.getContext('2d');
+      const mCtx = maskCanvas.getContext('2d');
+      const sCtx = shadowCanvas.getContext('2d');
+
+      // 1. Parede de Fundo (Beauty Pass)
+      const wallGrad = bCtx.createLinearGradient(0, 0, 0, h * 0.45);
+      wallGrad.addColorStop(0, '#bcc5cf');
+      wallGrad.addColorStop(1, '#9da8b3');
+      bCtx.fillStyle = wallGrad;
+      bCtx.fillRect(0, 0, w, h * 0.45);
+
+      // Rodapé
+      bCtx.fillStyle = '#ffffff';
+      bCtx.fillRect(0, h * 0.45 - 12, w, 12);
+
+      // 2. Chão com Perspectiva (Trapézio)
+      // Topo do chão: Y = h * 0.45 (de x = 0 a w)
+      // Base do chão: Y = h
+      const floorGrad = bCtx.createLinearGradient(0, h * 0.45, 0, h);
+      floorGrad.addColorStop(0, '#555555');
+      floorGrad.addColorStop(1, '#888888');
+      bCtx.fillStyle = floorGrad;
+      bCtx.fillRect(0, h * 0.45, w, h * 0.55);
+
+      // 3. Máscara do Piso (Branco no piso, Preto na parede e móvel)
+      mCtx.fillStyle = 'black';
+      mCtx.fillRect(0, 0, w, h);
+      mCtx.fillStyle = 'white';
+      mCtx.fillRect(0, h * 0.45, w, h * 0.55);
+
+      // 4. UV Map Pass (R = U, G = V em perspectiva)
+      const uvImg = uvCtx.createImageData(w, h);
+      const floorStartY = Math.floor(h * 0.45);
+      const floorHeight = h - floorStartY;
+
+      for (let y = floorStartY; y < h; y++) {
+        // Coordenada V com compressão de perspectiva (1 / z)
+        const t = (y - floorStartY) / floorHeight;
+        const v = Math.pow(t, 2.2); // Curva de perspectiva z
+
+        for (let x = 0; x < w; x++) {
+          // Coordenada U abrindo em perspectiva a partir do centro
+          const normX = (x / w) - 0.5;
+          const u = (normX / (0.35 + 0.65 * t)) + 0.5;
+
+          const idx = (y * w + x) * 4;
+          uvImg.data[idx] = Math.max(0, Math.min(255, Math.floor(u * 255)));     // R (U)
+          uvImg.data[idx + 1] = Math.max(0, Math.min(255, Math.floor(v * 255))); // G (V)
+          uvImg.data[idx + 2] = 0;                                               // B
+          uvImg.data[idx + 3] = 255;                                             // A
+        }
+      }
+      uvCtx.putImageData(uvImg, 0, 0);
+
+      // 5. Sombras & Oclusão (AO)
+      sCtx.fillStyle = '#ffffff';
+      sCtx.fillRect(0, 0, w, h);
+
+      // Sombra projetada pelo móvel central
+      const shadowGrad = sCtx.createRadialGradient(w*0.5 + 40, h*0.65 + 30, 10, w*0.5 + 40, h*0.65 + 30, 180);
+      shadowGrad.addColorStop(0, 'rgba(0,0,0,0.7)');
+      shadowGrad.addColorStop(1, 'rgba(0,0,0,0.0)');
+      sCtx.fillStyle = shadowGrad;
+      sCtx.beginPath();
+      sCtx.ellipse(w*0.5 + 60, h*0.72, 160, 40, -0.15, 0, Math.PI * 2);
+      sCtx.fill();
+
+      // Móvel de centro desenhado na imagem base e na máscara
+      // Caixa do móvel
+      const boxX = w * 0.5 - 90, boxY = h * 0.45 - 20, boxW = 180, boxH = 140;
+      bCtx.fillStyle = '#2c3e50';
+      bCtx.fillRect(boxX, boxY, boxW, boxH);
+      bCtx.fillStyle = '#34495e';
+      bCtx.fillRect(boxX + 10, boxY + 10, boxW - 20, boxH - 20);
+
+      // Retira o móvel da máscara do piso (o móvel fica na frente do chão)
+      mCtx.fillStyle = 'black';
+      mCtx.fillRect(boxX, boxY, boxW, boxH);
+
+      return { baseCanvas, uvCanvas, maskCanvas, shadowCanvas };
+    }
+
+    // --- 3. SHADERS WEBGL (O MOTOR DO ZYCOMPOSE) ---
+    const VS_SOURCE = `
+      attribute vec2 a_position;
+      varying vec2 v_uv;
+      void main() {
+        v_uv = (a_position + 1.0) * 0.5;
+        // Inverte Y para formato de imagem padrão
+        v_uv.y = 1.0 - v_uv.y;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+
+    const FS_SOURCE = `
+      precision mediump float;
+      varying vec2 v_uv;
+
+      uniform sampler2D u_base;
+      uniform sampler2D u_uvPass;
+      uniform sampler2D u_mask;
+      uniform sampler2D u_shadow;
+      uniform sampler2D u_material;
+
+      uniform float u_scale;
+      uniform float u_rotation;
+      uniform float u_offset;
+      uniform float u_light;
+      uniform int u_viewMode; // 0=Final, 1=UV, 2=Mask, 3=Shadow
+
+      vec2 rotateUV(vec2 uv, float angle) {
+        float s = sin(angle);
+        float c = cos(angle);
+        mat2 rot = mat2(c, -s, s, c);
+        return rot * (uv - 0.5) + 0.5;
+      }
+
+      void main() {
+        vec4 baseCol = texture2D(u_base, v_uv);
+        vec4 uvSample = texture2D(u_uvPass, v_uv);
+        float mask = texture2D(u_mask, v_uv).r;
+        vec4 shadowCol = texture2D(u_shadow, v_uv);
+
+        // Modos de debug
+        if (u_viewMode == 1) { gl_FragColor = uvSample; return; }
+        if (u_viewMode == 2) { gl_FragColor = vec4(vec3(mask), 1.0); return; }
+        if (u_viewMode == 3) { gl_FragColor = shadowCol; return; }
+
+        // Se não for a área do piso, exibe o render original multiplicado pela luz
+        if (mask < 0.05) {
+          gl_FragColor = vec4(baseCol.rgb * u_light, baseCol.a);
+          return;
+        }
+
+        // 1. Extrai as coordenadas UV do piso
+        vec2 floorUV = uvSample.rg;
+
+        // 2. Aplica escala, rotação e deslocamento
+        vec2 transformedUV = floorUV * u_scale + vec2(u_offset);
+        transformedUV = rotateUV(transformedUV, u_rotation);
+
+        // 3. Amostra a nova textura com repetição (fract)
+        vec4 matCol = texture2D(u_material, fract(transformedUV));
+
+        // 4. Composição com as sombras da cena e controle de luz
+        vec3 composed = matCol.rgb * shadowCol.rgb * u_light;
+
+        // 5. Mistura final perfeita com a máscara
+        gl_FragColor = vec4(mix(baseCol.rgb, composed, mask), 1.0);
+      }
+    `;
+
+    // --- 4. INICIALIZAÇÃO WEBGL ---
+    const canvas = document.getElementById('glCanvas');
+    const gl = canvas.getContext('webgl');
+
+    if (!gl) {
+      alert("Seu navegador não suporta WebGL.");
+    }
+
+    function createShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl, gl.VERTEX_SHADER, VS_SOURCE));
+    gl.attachShader(program, createShader(gl, gl.FRAGMENT_SHADER, FS_SOURCE));
+    gl.linkProgram(program);
+    gl.useProgram(program);
+
+    // Quad fullscreen
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1,  1, -1, -1,  1,
+      -1,  1,  1, -1,  1,  1,
+    ]), gl.STATIC_DRAW);
+
+    const aPos = gl.getAttribLocation(program, 'a_position');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    // Uniforms
+    const uBase = gl.getUniformLocation(program, 'u_base');
+    const uUvPass = gl.getUniformLocation(program, 'u_uvPass');
+    const uMask = gl.getUniformLocation(program, 'u_mask');
+    const uShadow = gl.getUniformLocation(program, 'u_shadow');
+    const uMaterial = gl.getUniformLocation(program, 'u_material');
+
+    const uScale = gl.getUniformLocation(program, 'u_scale');
+    const uRotation = gl.getUniformLocation(program, 'u_rotation');
+    const uOffset = gl.getUniformLocation(program, 'u_offset');
+    const uLight = gl.getUniformLocation(program, 'u_light');
+    const uViewMode = gl.getUniformLocation(program, 'u_viewMode');
+
+    function createTexture(image, unit) {
+      const tex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      return tex;
+    }
+
+    // Gera passes
+    const passes = generatePasses(960, 540);
+    createTexture(passes.baseCanvas, 0);
+    createTexture(passes.uvCanvas, 1);
+    createTexture(passes.maskCanvas, 2);
+    createTexture(passes.shadowCanvas, 3);
+
+    gl.uniform1i(uBase, 0);
+    gl.uniform1i(uUvPass, 1);
+    gl.uniform1i(uMask, 2);
+    gl.uniform1i(uShadow, 3);
+    gl.uniform1i(uMaterial, 4);
+
+    let activeMatIndex = 0;
+    let matTexture = createTexture(MATERIALS[0].canvas, 4);
+
+    // Variáveis de estado
+    let state = {
+      scale: 3.5,
+      rotation: 0.0,
+      offset: 0.0,
+      light: 1.0,
+      viewMode: 0
+    };
+
+    function updateMaterial(index) {
+      activeMatIndex = index;
+      gl.activeTexture(gl.TEXTURE4);
+      gl.bindTexture(gl.TEXTURE_2D, matTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, MATERIALS[index].canvas);
+      
+      document.querySelectorAll('.mat-card').forEach((el, i) => {
+        el.classList.toggle('active', i === index);
+      });
+      render();
+    }
+
+    function render() {
+      gl.uniform1f(uScale, state.scale);
+      gl.uniform1f(uRotation, state.rotation * Math.PI / 180.0);
+      gl.uniform1f(uOffset, state.offset);
+      gl.uniform1f(uLight, state.light);
+      gl.uniform1i(uViewMode, state.viewMode);
+
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      document.querySelectorAll('.debug-tab').forEach((el, i) => {
+        el.classList.toggle('active', i === mode);
+      });
+      render();
+    }
+
+    // --- 5. UI CONTROLS BINDING ---
+    const scaleSlider = document.getElementById('scaleSlider');
+    const rotSlider = document.getElementById('rotSlider');
+    const offsetSlider = document.getElementById('offsetSlider');
+    const lightSlider = document.getElementById('lightSlider');
+
+    scaleSlider.addEventListener('input', (e) => {
+      state.scale = parseFloat(e.target.value);
+      document.getElementById('scaleVal').textContent = state.scale.toFixed(1) + 'x';
+      render();
+    });
+
+    rotSlider.addEventListener('input', (e) => {
+      state.rotation = parseFloat(e.target.value);
+      document.getElementById('rotVal').textContent = state.rotation + '°';
+      render();
+    });
+
+    offsetSlider.addEventListener('input', (e) => {
+      state.offset = parseFloat(e.target.value);
+      document.getElementById('offsetVal').textContent = state.offset.toFixed(2);
+      render();
+    });
+
+    lightSlider.addEventListener('input', (e) => {
+      state.light = parseFloat(e.target.value);
+      document.getElementById('lightVal').textContent = state.light.toFixed(2) + 'x';
+      render();
+    });
+
+    // Popula lista de materiais
+    const matList = document.getElementById('materialsList');
+    MATERIALS.forEach((mat, i) => {
+      const card = document.createElement('div');
+      card.className = `mat-card ${i === 0 ? 'active' : ''}`;
+      card.onclick = () => updateMaterial(i);
+
+      const preview = document.createElement('div');
+      preview.className = 'mat-preview';
+      preview.style.backgroundImage = `url(${mat.canvas.toDataURL()})`;
+
+      const name = document.createElement('div');
+      name.className = 'mat-name';
+      name.textContent = mat.name;
+
+      card.appendChild(preview);
+      card.appendChild(name);
+      matList.appendChild(card);
+    });
+
+    function downloadRender() {
+      const link = document.createElement('a');
+      link.download = 'meu_render_configurado.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // Primeiro render
+    render();
+  </script>
+</body>
+</html>
