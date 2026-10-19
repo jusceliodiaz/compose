@@ -36,7 +36,6 @@ uniform float u_glossKeep[3];
 uniform vec3  u_slotSelect[3];   // one-hot do canal na máscara
 uniform float u_slotMaskFile[3]; // 0 → u_mask0, 1 → u_mask1
 uniform float u_seamThreshold;
-uniform float u_albedoPower;     // 1 = passes lineares; p < 1 quando os passes já vêm com tone mapping
 
 // --- LightMix (até 4 grupos, método da razão) ----------------------------------------
 uniform int       u_lightCount;
@@ -49,7 +48,9 @@ uniform vec3      u_lightTint[4]; // intensidade × cor(Kelvin), calculado no JS
 
 // --- Saída -------------------------------------------------------------------------------
 uniform float u_exposure;
-uniform int   u_toneOp;          // 0 standard (clamp), 1 aces, 2 agx
+uniform int   u_toneOp;          // 0 standard (clamp), 1 aces, 2 agx, 3 LUT (curva reconstruída do render)
+uniform float u_toneLut[128];    // T em pontos igualmente espaçados de log2(x)
+uniform vec4  u_toneLutInfo;     // (log2_min, log2_max, inclinação abaixo do mínimo, nº de valores)
 uniform float u_splitX;          // cortina antes/depois: x < splitX mostra o "antes"
 uniform int   u_debug;           // 0 normal, 1 UV, 2 máscaras, 3 luz difusa, 4 costuras, 5 albedo (slot 0)
 
@@ -108,10 +109,21 @@ vec3 tonemapAgX(vec3 color) {
     return clamp(REC2020_TO_SRGB * color, 0.0, 1.0);
 }
 
+float lutTone(float x) {
+    float lo = u_toneLutInfo.x, hi = u_toneLutInfo.y;
+    float last = u_toneLutInfo.w - 1.0;
+    float ev = log2(max(x, 1e-12));
+    if (ev <= lo) return u_toneLut[0] * exp2(u_toneLutInfo.z * (ev - lo));
+    float f = clamp((ev - lo) / (hi - lo), 0.0, 1.0) * last;
+    int i = int(min(floor(f), last - 1.0));
+    return mix(u_toneLut[i], u_toneLut[i + 1], f - float(i));
+}
+
 vec3 toneMap(vec3 hdr) {
     vec3 x = hdr * u_exposure;
     if (u_toneOp == 1) return tonemapACES(x);
     if (u_toneOp == 2) return tonemapAgX(x);
+    if (u_toneOp == 3) return vec3(lutTone(x.r), lutTone(x.g), lutTone(x.b));
     return clamp(x, 0.0, 1.0);
 }
 
@@ -129,8 +141,7 @@ vec3 sampleAlbedo(sampler2D albedoTex, int i, vec2 uv, vec2 duvdx, vec2 duvdy) {
     // costura de UV (ou borda do slot): derivada enorme → zera para não cair no mip mais borrado
     if (max(dot(dx, dx), dot(dy, dy)) > u_seamThreshold) { dx = vec2(0.0); dy = vec2(0.0); }
     // SEM fract(): o wrap REPEAT da textura cuida da repetição
-    vec3 a = textureGrad(albedoTex, tuv, dx, dy).rgb * u_tint[i];
-    return u_albedoPower == 1.0 ? a : pow(max(a, vec3(0.0)), vec3(u_albedoPower));
+    return textureGrad(albedoTex, tuv, dx, dy).rgb * u_tint[i];
 }
 
 // Reilumina o material com a luz calculada pelo renderizador offline.

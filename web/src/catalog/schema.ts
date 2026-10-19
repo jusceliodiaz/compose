@@ -4,7 +4,16 @@
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
 export type Channel = 'r' | 'g' | 'b';
-export type ToneOperator = 'standard' | 'aces' | 'agx';
+export type ToneOperator = 'standard' | 'aces' | 'agx' | 'lut';
+
+/** Curva de tone mapping tabelada (renders que já vieram com tone mapping; ver tools/tone_curve.py). */
+export interface ToneLut {
+  log2_min: number;
+  log2_max: number;
+  /** inclinação em log-log abaixo de log2_min */
+  low_slope: number;
+  values: number[];
+}
 
 export interface RawTintVariant { id: string; name: string; tint: Vec3 }
 export interface RawPrice { value: number; unit: string; currency: string }
@@ -56,8 +65,7 @@ export interface RawCatalog {
   camera: string;
   camera_name?: string;
   resolution?: { view?: Vec2; export?: Vec2 };
-  /** relight_power: expoente p quando os passes já vêm com tone mapping (shaded = albedo^p × luz). */
-  tone_mapping?: { operator?: ToneOperator; exposure?: number; relight_power?: number };
+  tone_mapping?: { operator?: ToneOperator; exposure?: number; lut?: ToneLut };
   base_passes: {
     beauty: string;
     beauty_linear?: string;
@@ -140,7 +148,7 @@ export interface CameraDef {
   name: string;
   viewResolution: Vec2;
   exportResolution: Vec2;
-  tone: { operator: ToneOperator; exposure: number; relightPower: number };
+  tone: { operator: ToneOperator; exposure: number; lut: ToneLut | null };
   passes: CameraPasses;
   lightGroups: LightGroup[];
 }
@@ -164,6 +172,7 @@ export class CatalogError extends Error {
 export const MAX_SLOTS = 3;
 export const MAX_LIGHT_GROUPS = 4;
 export const DEFAULT_GLOSS_KEEP = 0.6;
+export const MAX_TONE_LUT = 128;
 
 const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 const isVec = (x: unknown, n: number): boolean => Array.isArray(x) && x.length === n && x.every(isNum);
@@ -288,6 +297,12 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
     range: isVec(g.range, 2) ? (g.range as Vec2) : [0, 2],
   }));
   if (lgs.length > MAX_LIGHT_GROUPS) p.push(`no máximo ${MAX_LIGHT_GROUPS} light groups`);
+  if (c.tone_mapping?.operator === 'lut') {
+    const l = c.tone_mapping.lut;
+    if (!l || !Array.isArray(l.values) || l.values.length < 2 || l.values.length > MAX_TONE_LUT) {
+      p.push(`tone_mapping.lut precisa de 2–${MAX_TONE_LUT} valores`);
+    }
+  }
 
   if (p.length) throw new CatalogError(p);
 
@@ -300,7 +315,7 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
     tone: {
       operator: c.tone_mapping?.operator ?? 'agx',
       exposure: isNum(c.tone_mapping?.exposure) ? c.tone_mapping!.exposure! : 1,
-      relightPower: isNum(c.tone_mapping?.relight_power) ? c.tone_mapping!.relight_power! : 1,
+      lut: c.tone_mapping?.lut ?? null,
     },
     passes: {
       beautyDisplay: url(bp.beauty),

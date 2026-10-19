@@ -30,6 +30,7 @@ import numpy as np
 import exr_io
 import pack_uv
 import reconstruct_check
+import tone_curve
 import validate_catalog
 from catalog_index import update_index
 
@@ -190,22 +191,6 @@ def original_thumb(beauty_ldr: np.ndarray, mask: np.ndarray, out: Path) -> None:
     exr_io.write_webp(out, exr_io.resize_area(beauty_ldr[y0:y0 + side, x0:x0 + side], (256, 256)), 88)
 
 
-def estimate_relight_power(beauty: np.ndarray, dc: np.ndarray, mask: np.ndarray) -> float | None:
-    """Expoente p da curva de tone mapping (T(x) ≈ k·x^p) a partir dos detalhes finos do albedo: dentro do
-    slot a luz varia devagar e o albedo (veio, juntas) varia rápido, então ∂log(beauty) ≈ p·∂log(albedo)."""
-    import cv2
-
-    lb = np.log(np.maximum(exr_io.luminance(beauty), 1e-4)).astype(np.float32)
-    ld = np.log(np.maximum(exr_io.luminance(dc), 1e-4)).astype(np.float32)
-    hb = lb - cv2.GaussianBlur(lb, (0, 0), 6)
-    hd = ld - cv2.GaussianBlur(ld, (0, 0), 6)
-    sel = cv2.erode(mask.astype(np.uint8), np.ones((25, 25), np.uint8)) > 0
-    x, y = hd[sel], hb[sel]
-    if x.size < 1000 or float((x * x).sum()) < 1e-3 or float(np.corrcoef(x, y)[0, 1]) < 0.3:
-        return None
-    return float(np.clip((x * y).sum() / (x * x).sum(), 0.2, 1.0))
-
-
 def rgb(img: np.ndarray) -> np.ndarray:
     if img.shape[2] >= 3:
         return img[..., :3]
@@ -307,29 +292,46 @@ def run(args: argparse.Namespace) -> int:
     print(f"   tone map {args.tone}, exposição {exposure:.4f}")
 
     # 5. passes de luz em EXR half RGB (sem alfa; arquivos menores)
-    exr_io.write_exr(dest / "beauty.exr", beauty)
     use_glossy = "reflect" in img and not args.light_from_beauty
-    relight_power = 1.0
+    tone_json: dict = {"operator": args.tone, "exposure": round(exposure, 6)}
+    lin = lambda a: a  # noqa: E731 — passes já lineares
+    if args.light_from_beauty and "diff_color" not in img:
+        print("ERRO: --light-from-beauty precisa do diff_color", file=sys.stderr)
+        return 1
+    if args.light_from_beauty and display_referred:
+        # Reconstrói a curva do Corona e volta os passes para um espaço linear (ver tools/tone_curve.py)
+        dc_all = rgb(img["diff_color"])
+        curve = None
+        if "diff_light" in img and float(rgb(img["diff_light"]).max()) <= 1.001:
+            # o diff_light também veio com a curva: T⁻¹(beauty) = albedo · T⁻¹(diff_light), na imagem toda
+            curve = tone_curve.fit_from_light(beauty, dc_all, rgb(img["diff_light"]),
+                                              rgb(img["reflect"]) if "reflect" in img else None)
+            if curve is not None:
+                print(f"   curva de tone mapping reconstruída pelo diff_light: p0 = {curve.p0:.3f}, "
+                      f"joelho {curve.tc:.3f}, n = {curve.n:.0f}, mínimo {curve.pmin:.2f} "
+                      f"(erro mediano {curve.fit_error:.4f} em log2)")
+        if curve is None:
+            bins = []
+            for m in slot_mask.values():
+                bins += tone_curve.local_slopes(beauty, dc_all, m > 0.5)
+            curve = tone_curve.fit_curve(bins)
+            print(f"   curva de tone mapping reconstruída pelos detalhes do albedo: p0 = {curve.p0:.3f}, "
+                  f"joelho em T ≈ {curve.tc:.3f} ({len(bins)} faixas{'' if bins else ' — SEM dados, curva genérica'})")
+        lin = curve.inverse
+        tone_json = {"operator": "lut", "exposure": 1.0, "lut": curve.lut()}
+    beauty_lin = lin(beauty).astype(np.float32)
+    exr_io.write_exr(dest / "beauty.exr", beauty_lin)
     if args.light_from_beauty:
-        if "diff_color" not in img:
-            print("ERRO: --light-from-beauty precisa do diff_color", file=sys.stderr)
-            return 1
-        # Fallback dos docs (Seção 4.2): a razão beauty / albedo original aproxima a luz que chega na superfície.
-        # O reflexo fica embutido na luz (não há glossy separado).
-        if display_referred:
-            ests = [e for e in (estimate_relight_power(beauty, rgb(img["diff_color"]), m > 0.5) for m in slot_mask.values()) if e]
-            relight_power = round(float(np.median(ests)), 3) if ests else 0.6
-            print(f"   expoente da curva de tone mapping estimado: p = {relight_power} "
-                  f"({'dos slots ' + str([round(e, 3) for e in ests]) if ests else 'padrão, sem textura para estimar'})")
-        light = beauty / np.power(np.maximum(rgb(img["diff_color"]), 0.02), relight_power)
-        print(f"   diff_light = beauty / max(diff_color, 0.02)^{relight_power}  (modo --light-from-beauty)")
+        # Fallback dos docs (Seção 4.2): luz ≈ beauty / albedo original (o reflexo fica embutido na luz).
+        light = beauty_lin / np.maximum(rgb(img["diff_color"]), 0.02)
+        print("   diff_light = T⁻¹(beauty) / max(diff_color, 0.02)  (modo --light-from-beauty)")
         exr_io.write_exr(dest / "diff_light.exr", np.minimum(light, 60000.0))
     else:
         exr_io.write_exr(dest / "diff_light.exr", rgb(img["diff_light"]))
     if use_glossy:
         exr_io.write_exr(dest / "glossy.exr", rgb(img["reflect"]))
     for g, a in lgi.items():
-        exr_io.write_exr(dest / f"lg_{g}.exr", rgb(a))
+        exr_io.write_exr(dest / f"lg_{g}.exr", np.minimum(lin(rgb(a)), 60000.0).astype(np.float32))
 
     # 6. reconstrução
     recon_ok = None
@@ -374,8 +376,7 @@ def run(args: argparse.Namespace) -> int:
         "camera": args.camera,
         "camera_name": args.camera_name or args.camera,
         "resolution": {"view": [w, h], "export": [w, h]},
-        "tone_mapping": {"operator": args.tone, "exposure": round(exposure, 6),
-                         **({"relight_power": relight_power} if relight_power != 1.0 else {})},
+        "tone_mapping": tone_json,
         "base_passes": {
             "beauty": f"{rel_cam}/beauty.webp",
             "beauty_linear": f"{rel_cam}/beauty.exr",

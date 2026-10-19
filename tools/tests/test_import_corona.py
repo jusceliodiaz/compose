@@ -59,17 +59,20 @@ def test_import_corona_gera_catalogo_valido(corona_dir, tmp_path, capsys):
     assert idx["default"] == "sala"
 
 
-def test_import_corona_display_referred_estima_expoente(tmp_path):
-    """Passes já com tone mapping (beauty ≤ 1): estima p da curva e grava relight_power."""
+def test_import_corona_display_referred_reconstroi_curva(tmp_path):
+    """Passes já com tone mapping (beauty ≤ 1): reconstrói a curva, grava a LUT e deslineariza os passes."""
+    import tone_curve
+
     d = tmp_path / "r"
-    h, w = 120, 160
+    h, w = 160, 200
     rng = np.random.default_rng(1)
-    albedo = np.clip(0.3 + 0.15 * rng.standard_normal((h, w)), 0.05, 0.9)
-    light = np.tile(np.linspace(0.5, 2.0, w), (h, 1))
-    beauty = np.clip(0.8 * (albedo * light) ** 0.6, 0, 1)            # curva T(x) = 0.8·x^0.6
+    albedo = np.clip(0.3 + 0.12 * rng.standard_normal((h, w)), 0.05, 0.9)
+    light = np.tile(np.linspace(0.3, 3.0, w), (h, 1))
+    true = lambda x: x / (x + 0.6)                                    # curva "do renderizador" (Reinhard)
+    beauty = true(albedo * light)
     rgb = lambda a: np.repeat(a[..., None], 3, -1).astype(np.float32)
-    exr_io.write_exr(d / "c_beauty.exr", rgb(beauty))
-    exr_io.write_exr(d / "c_diff_color.exr", rgb(albedo))
+    exr_io.write_exr(d / "c_beauty.exr", rgb(beauty), half=False)
+    exr_io.write_exr(d / "c_diff_color.exr", rgb(albedo), half=False)
     exr_io.write_exr(d / "c_diff_light.exr", rgb(np.clip(light, 0, 1)))
     uv = np.zeros((h, w, 3), np.float32)
     uv[..., 0], uv[..., 1] = np.meshgrid(np.linspace(0, 4, w), np.linspace(0, 3, h))
@@ -80,8 +83,21 @@ def test_import_corona_display_referred_estima_expoente(tmp_path):
                              "--light-from-beauty", "--web-root", str(public)])
     assert rc == 0
     cat = json.loads((public / "assets/catalog/p.json").read_text(encoding="utf-8"))
-    assert cat["tone_mapping"]["operator"] == "standard"
-    assert cat["tone_mapping"]["relight_power"] == pytest.approx(0.6, abs=0.05)
+    tm = cat["tone_mapping"]
+    assert tm["operator"] == "lut" and len(tm["lut"]["values"]) == tone_curve.LUT_SIZE
+    assert validate_catalog.validate(cat, public).errors == []
+
+    # a curva reconstruída prevê a troca de albedo como a curva verdadeira (até um fator de escala)
+    cam = public / "assets/scenes/p/c"
+    lin = exr_io.read_exr(cam / "beauty.exr")[..., 0]
+    lut = tm["lut"]
+    fwd = lambda x: np.interp(np.log2(np.maximum(x, 1e-12)),
+                              np.linspace(lut["log2_min"], lut["log2_max"], len(lut["values"])), lut["values"])
+    assert np.abs(fwd(lin) - beauty).max() < 0.01                    # identidade com o material original
+    light_rec = exr_io.read_exr(cam / "diff_light.exr")[..., 0]
+    pred = fwd(0.6 * light_rec)                                       # novo albedo 0.6
+    expected = true(0.6 * light)
+    assert np.median(np.abs(pred - expected)) < 0.03
 
 
 def test_import_corona_falha_claro_sem_mascara(corona_dir, tmp_path, capsys):

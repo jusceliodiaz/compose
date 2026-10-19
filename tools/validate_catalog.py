@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TONE_OPS = {"standard", "aces", "agx"}
+TONE_OPS = {"standard", "aces", "agx", "lut"}
 
 
 class Checker:
@@ -57,6 +57,13 @@ def validate(cat: dict, root: Path) -> Checker:
     tm = cat.get("tone_mapping", {})
     if tm and tm.get("operator") not in TONE_OPS:
         c.err(f"tone_mapping.operator deve ser um de {sorted(TONE_OPS)}")
+    if tm.get("operator") == "lut":
+        lut = tm.get("lut") or {}
+        vals = lut.get("values", [])
+        if not (2 <= len(vals) <= 256 and all(b >= a for a, b in zip(vals, vals[1:]))):
+            c.err("tone_mapping.lut.values deve ter 2–256 valores crescentes")
+        if not lut.get("log2_max", 0) > lut.get("log2_min", 0):
+            c.err("tone_mapping.lut: log2_max deve ser maior que log2_min")
 
     bp = cat.get("base_passes", {})
     c.file(bp.get("beauty"), "base_passes.beauty")

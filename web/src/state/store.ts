@@ -20,6 +20,8 @@ export interface LightConfig {
 
 export interface ConfigState {
   cam: string;
+  /** Ajuste fino de exposição em EV (0 = como o render). */
+  ev: number;
   slots: Record<string, SlotConfig>;
   lights: Record<string, LightConfig>;
 }
@@ -33,7 +35,7 @@ export function defaultState(catalog: NormalizedCatalog, camId?: string): Config
   }
   const lights: Record<string, LightConfig> = {};
   for (const g of cam.lightGroups) lights[g.id] = { intensity: g.intensity, kelvin: g.kelvin };
-  return { cam: cam.id, slots, lights };
+  return { cam: cam.id, ev: 0, slots, lights };
 }
 
 type Listener = (state: ConfigState, prev: ConfigState) => void;

@@ -120,6 +120,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
       const p = prev?.lights[id];
       if (!p || p.intensity !== l.intensity || p.kelvin !== l.kelvin) compositor.setLight(id, l);
     }
+    if (!prev || prev.ev !== s.ev) compositor.setExposureEV(s.ev);
     syncChecker(s);
     await Promise.all(jobs);
   }

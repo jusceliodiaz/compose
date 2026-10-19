@@ -5,6 +5,7 @@ import { KELVIN_MAX, KELVIN_MIN } from '../util/kelvin';
 import { defaultState, type ConfigState } from './store';
 
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
+export const EV_RANGE = 2;
 const num = (s: string | null): number | null => {
   if (s === null || s.trim() === '') return null;
   const n = Number(s);
@@ -20,6 +21,7 @@ export function serializeState(state: ConfigState, catalog: NormalizedCatalog): 
   const def = defaultState(catalog, state.cam);
   const q = new URLSearchParams();
   q.set('cam', state.cam);
+  if (state.ev !== 0) q.set('ev', fmt(state.ev, 2));
   for (const s of catalog.slots) {
     const c = state.slots[s.id];
     const d = def.slots[s.id];
@@ -47,6 +49,8 @@ export function deserializeState(params: URLSearchParams | string, catalog: Norm
   const camId = q.get('cam');
   const cam = catalog.cameras.find((c) => c.id === camId) ?? catalog.cameras[0]!;
   const st = defaultState(catalog, cam.id);
+  const ev = num(q.get('ev'));
+  if (ev !== null) st.ev = clamp(ev, -EV_RANGE, EV_RANGE);
 
   for (const s of catalog.slots) {
     const c = st.slots[s.id]!;

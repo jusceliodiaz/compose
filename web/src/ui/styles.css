@@ -1028,6 +1028,10 @@ button:disabled {
   background: rgba(255, 245, 230, 0.015);
 }
 
+.light--exposure {
+  gap: 0;
+}
+
 .light-head {
   display: flex;
   align-items: center;

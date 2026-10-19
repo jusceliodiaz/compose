@@ -1,7 +1,7 @@
 // Painel de inspeção: superfície → acabamento → variantes → ajuste → iluminação → orçamento.
 import type { MaterialOption, NormalizedCatalog, Slot } from '../catalog/schema';
 import { budget, type ConfigState, type Store } from '../state/store';
-import { kelvinBounds } from '../state/urlState';
+import { EV_RANGE, kelvinBounds } from '../state/urlState';
 import { kelvinToCss } from '../util/kelvin';
 import { h, icon, ICONS, money, num } from './dom';
 import { slider, type Slider } from './slider';
@@ -256,10 +256,21 @@ export class Panel {
   // 04 — Iluminação (LightMix)
   private sectionLights(st: ConfigState): HTMLElement {
     const cam = this.catalog.cameras.find((c) => c.id === st.cam)!;
+    const fmtEv = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${num(Math.abs(v), 1)} EV`;
+    const exposure = slider({
+      id: 'exposure', label: 'Exposição', min: -EV_RANGE, max: EV_RANGE, step: 0.1, value: st.ev, reset: 0,
+      format: fmtEv,
+      onInput: (v) => this.store.update((d) => {
+        d.ev = Math.round(v * 10) / 10;
+      }),
+      hint: 'Ajuste fino da cena inteira. 0 = exposição original do render.',
+    });
+    this.updaters.push((s) => exposure.set(s.ev));
+    const expBox = h('div', { class: 'light light--exposure' }, exposure.el);
     if (!cam.lightGroups.length) {
-      return this.section(4, 'Iluminação', h('p', { class: 'muted-note' }, 'Esta câmera não tem grupos de luz.'));
+      return this.section(4, 'Iluminação', expBox, h('p', { class: 'muted-note' }, 'Esta câmera não tem grupos de luz.'));
     }
-    const list = h('div', { class: 'lights' });
+    const list = h('div', { class: 'lights' }, expBox);
     for (const g of cam.lightGroups) {
       const l = st.lights[g.id]!;
       const [kmin, kmax] = kelvinBounds(g.kelvin);
@@ -298,6 +309,7 @@ export class Panel {
         type: 'button',
         onclick: () =>
           this.store.update((d) => {
+            d.ev = 0;
             for (const g of cam.lightGroups) d.lights[g.id] = { intensity: g.intensity, kelvin: g.kelvin };
           }),
       },

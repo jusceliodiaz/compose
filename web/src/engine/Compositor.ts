@@ -61,7 +61,8 @@ interface SlotState {
   req: number;
 }
 
-const TONE_OPS = { standard: 0, aces: 1, agx: 2 } as const;
+const TONE_OPS = { standard: 0, aces: 1, agx: 2, lut: 3 } as const;
+const LUT_SIZE = 128;
 const MAX_SLOTS = 3;
 const MAX_LG = 4;
 
@@ -83,6 +84,8 @@ export class Compositor {
   private readonly white = whiteAlbedo();
   private readonly black = solidData([0, 0, 0, 255]);
   private frame = 0;
+  private baseExposure = 1;
+  private ev = 0;
   private renderCount = 0;
   /** Chamado depois de cada render (a UI usa para atualizar indicadores). */
   onRender: (() => void) | null = null;
@@ -115,7 +118,8 @@ export class Compositor {
         u_glossKeep: u(new Array<number>(MAX_SLOTS).fill(0.6)),
         u_slotSelect: u(Array.from({ length: MAX_SLOTS }, () => new THREE.Vector3(1, 0, 0))),
         u_slotMaskFile: u(new Array<number>(MAX_SLOTS).fill(0)),
-        u_seamThreshold: u(0.02), u_albedoPower: u(1),
+        u_seamThreshold: u(0.02),
+        u_toneLut: u(new Array<number>(LUT_SIZE).fill(0)), u_toneLutInfo: u(new THREE.Vector4(0, 1, 1, 2)),
         u_lightCount: u(0), u_lightMixOn: u(false),
         u_lg0: u(this.black), u_lg1: u(this.black), u_lg2: u(this.black), u_lg3: u(this.black),
         u_lightTint: u(Array.from({ length: MAX_LG }, () => new THREE.Vector3(1, 1, 1))),
@@ -165,9 +169,15 @@ export class Compositor {
     this.applyLights();
 
     const U = this.material.uniforms;
-    U.u_exposure!.value = cam.tone.exposure;
+    this.baseExposure = cam.tone.exposure;
+    U.u_exposure!.value = cam.tone.exposure * Math.pow(2, this.ev);
     U.u_toneOp!.value = TONE_OPS[cam.tone.operator];
-    U.u_albedoPower!.value = cam.tone.relightPower;
+    if (cam.tone.lut) {
+      const vals = cam.tone.lut.values;
+      const arr = U.u_toneLut!.value as number[];
+      for (let i = 0; i < LUT_SIZE; i++) arr[i] = vals[Math.min(i, vals.length - 1)]!;
+      (U.u_toneLutInfo!.value as THREE.Vector4).set(cam.tone.lut.log2_min, cam.tone.lut.log2_max, cam.tone.lut.low_slope, vals.length);
+    }
     U.u_slotCount!.value = Math.min(catalog.slots.length, MAX_SLOTS);
 
     this.slots.clear();
@@ -300,8 +310,10 @@ export class Compositor {
     U.u_lightMixOn!.value = !neutral && groups.length > 0;
   }
 
-  setExposure(exposure: number): void {
-    this.material.uniforms.u_exposure!.value = exposure;
+  /** Ajuste fino de exposição, em EV, sobre a exposição do catálogo (0 = como o render). */
+  setExposureEV(ev: number): void {
+    this.ev = ev;
+    this.material.uniforms.u_exposure!.value = this.baseExposure * Math.pow(2, ev);
     this.requestRender();
   }
 
