@@ -61,6 +61,7 @@ export const ICONS = {
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   alert: '<path d="M12 4 2.8 19.5h18.4L12 4Z"/><path d="M12 10v4.2M12 17h.01"/>',
   grip: '<path d="M9 5.5v13M15 5.5v13"/>',
+  camera: '<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.2"/>',
 } as const;
 
 const brl = new Map<string, Intl.NumberFormat>();

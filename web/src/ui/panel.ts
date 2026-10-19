@@ -1,4 +1,4 @@
-// Painel de inspeção: superfície → acabamento → variantes → ajuste → iluminação → orçamento.
+// Painel: superfícies (topo fixo) → acabamento → ajustar textura / iluminação (recolhíveis) → total + export (rodapé fixo).
 import type { MaterialOption, NormalizedCatalog, Slot } from '../catalog/schema';
 import { budget, type ConfigState, type Store } from '../state/store';
 import { EV_RANGE, kelvinBounds } from '../state/urlState';
@@ -9,17 +9,26 @@ import { slider, type Slider } from './slider';
 export interface PanelEvents {
   /** Pré-carrega o albedo ao passar o mouse/focar a miniatura. */
   preload(slotId: string, option: MaterialOption): void;
+  onExport(): void;
 }
 
 const srgb = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
 const linToCss = (c: readonly number[]) =>
   `rgb(${c.map((x) => Math.round(Math.min(1, Math.max(0, srgb(x))) * 255)).join(' ')})`;
+const fmtEv = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${num(Math.abs(v), 1)} EV`;
+
+type Updater = (s: ConfigState) => void;
 
 export class Panel {
   readonly el: HTMLElement;
   private activeSlot: string;
-  private body: HTMLElement;
-  private updaters: ((s: ConfigState) => void)[] = [];
+  private readonly head: HTMLElement;
+  private readonly body: HTMLElement;
+  private readonly exportBtn: HTMLButtonElement;
+  private updaters: Updater[] = [];
+  private readonly footUpdaters: Updater[] = [];
+  /** Seções recolhíveis abertas (sobrevive à reconstrução do painel). */
+  private readonly open = new Set<string>();
 
   constructor(
     private readonly catalog: NormalizedCatalog,
@@ -27,75 +36,97 @@ export class Panel {
     private readonly events: PanelEvents,
   ) {
     this.activeSlot = catalog.slots[0]?.id ?? '';
-    this.body = h('div', { class: 'insp-body' });
-    const toggle = h(
+    this.head = h('div', { class: 'panel-head' });
+    this.body = h('div', { class: 'panel-body', id: 'panel-body' });
+    this.exportBtn = h(
+      'button',
+      { class: 'btn btn--primary btn--block', type: 'button', onclick: () => events.onExport() },
+      icon(ICONS.download, 18),
+      h('span', { class: 'btn-label' }, 'Baixar imagem'),
+    );
+    const sheetToggle = h(
       'button',
       {
-        class: 'insp-toggle',
+        class: 'sheet-toggle',
         type: 'button',
         'aria-expanded': 'true',
-        'aria-controls': 'inspector-body',
+        'aria-controls': 'panel-body',
         onclick: () => {
-          const open = this.el.classList.toggle('is-collapsed') === false;
-          toggle.setAttribute('aria-expanded', String(open));
+          const collapsed = this.el.classList.toggle('is-collapsed');
+          sheetToggle.setAttribute('aria-expanded', String(!collapsed));
         },
       },
-      h('span', { class: 'insp-grab', 'aria-hidden': 'true' }),
-      h('span', { class: 'insp-toggle-label' }, 'Personalizar'),
+      h('span', { class: 'sheet-grab', 'aria-hidden': 'true' }),
+      h('span', { class: 'sheet-label' }, 'Personalizar'),
       icon(ICONS.chevron, 18),
     );
-    this.body.id = 'inspector-body';
-    this.el = h('aside', { class: 'inspector', 'aria-label': 'Personalização' }, toggle, this.body);
+    this.el = h(
+      'aside',
+      { class: 'panel', 'aria-label': 'Personalização' },
+      sheetToggle,
+      this.head,
+      this.body,
+      this.footer(),
+    );
     this.build();
     store.subscribe((s, prev) => {
       if (s.slots[this.activeSlot]?.option !== prev.slots[this.activeSlot]?.option) this.build();
       else this.updaters.forEach((u) => u(s));
+      this.footUpdaters.forEach((u) => u(s));
     });
+    this.footUpdaters.forEach((u) => u(store.get()));
   }
 
   get slotId(): string {
     return this.activeSlot;
   }
 
+  setBusy(busy: boolean, label = 'Gerando PNG…'): void {
+    this.exportBtn.disabled = busy;
+    this.exportBtn.classList.toggle('is-busy', busy);
+    this.exportBtn.querySelector('.btn-label')!.textContent = busy ? label : 'Baixar imagem';
+  }
+
   private get slot(): Slot {
     return this.catalog.slots.find((s) => s.id === this.activeSlot)!;
   }
 
-  /** (Re)constrói o conteúdo — só quando muda o slot ou a opção (o resto é atualizado no lugar). */
+  /** (Re)constrói o conteúdo — só quando muda o slot ou a opção; o resto é atualizado no lugar. */
   build(): void {
     const scroll = this.body.scrollTop;
     this.updaters = [];
     const st = this.store.get();
-    this.body.replaceChildren(
-      this.sectionSurfaces(),
-      this.sectionMaterials(st),
-      this.sectionTransform(st),
-      this.sectionLights(st),
-      this.sectionBudget(),
-    );
+    this.head.replaceChildren(this.surfaces());
+    this.body.replaceChildren(this.finishes(st), this.transform(st), this.lights(st));
     this.updaters.forEach((u) => u(st));
     this.body.scrollTop = scroll;
   }
 
-  private section(n: number, title: string, ...content: (Node | null)[]): HTMLElement {
-    return h(
-      'section',
-      { class: 'insp-sec', style: `--i:${n}` },
-      h('h2', { class: 'sec-title' }, h('span', { class: 'sec-num' }, String(n).padStart(2, '0')), title),
-      ...content,
+  /** Seção recolhível (<details>) com um resumo do estado ao lado do título. */
+  private disclosure(id: string, title: string, summary: (s: ConfigState) => string, ...content: (Node | null)[]): HTMLElement {
+    const meta = h('span', { class: 'acc-meta' });
+    this.updaters.push((s) => (meta.textContent = summary(s)));
+    const det = h(
+      'details',
+      { class: 'acc', open: this.open.has(id), 'data-id': id },
+      h('summary', { class: 'acc-sum' }, h('span', { class: 'acc-title' }, title), meta, h('span', { class: 'acc-chev' }, icon(ICONS.chevron, 16))),
+      h('div', { class: 'acc-body' }, ...content),
     );
+    det.addEventListener('toggle', () => (det.open ? this.open.add(id) : this.open.delete(id)));
+    return det;
   }
 
-  // 01 — Superfícies (slots)
-  private sectionSurfaces(): HTMLElement {
-    const tabs = h('div', { class: 'slot-tabs', role: 'tablist', 'aria-label': 'Superfícies' });
+  // --- Superfícies (slots) -------------------------------------------------------
+
+  private surfaces(): HTMLElement {
+    const tabs = h('div', { class: 'surfaces', role: 'tablist', 'aria-label': 'Superfícies' });
     for (const s of this.catalog.slots) {
       const on = s.id === this.activeSlot;
       tabs.append(
         h(
           'button',
           {
-            class: `slot-tab${on ? ' is-active' : ''}`,
+            class: `surface${on ? ' is-active' : ''}`,
             role: 'tab',
             type: 'button',
             'aria-selected': String(on),
@@ -104,103 +135,112 @@ export class Panel {
               this.build();
             },
           },
-          icon(ICONS.layers, 16),
-          h('span', { class: 'slot-tab-name' }, s.name),
-          s.areaM2 !== null ? h('span', { class: 'slot-tab-meta' }, `${num(s.areaM2, 1)} m²`) : null,
+          h('span', { class: 'surface-name' }, s.name),
+          s.areaM2 !== null ? h('span', { class: 'surface-meta' }, `${num(s.areaM2, 1)} m²`) : null,
         ),
       );
     }
-    return this.section(1, 'Superfície', tabs);
+    return h('div', {}, h('p', { class: 'eyebrow' }, 'Superfície'), tabs);
   }
 
-  // 02 — Acabamento (materiais + detalhe + variantes)
-  private sectionMaterials(st: ConfigState): HTMLElement {
+  // --- Acabamento ----------------------------------------------------------------
+
+  private finishes(st: ConfigState): HTMLElement {
     const slot = this.slot;
     const cfg = st.slots[slot.id]!;
-    const grid = h('div', { class: 'mat-grid', role: 'radiogroup', 'aria-label': `Acabamentos de ${slot.name}` });
-    for (const o of slot.options.filter((x) => !x.isTest)) {
+    const visible = slot.options.filter((x) => !x.isTest);
+    // 4 opções → 4 colunas (evita um card sozinho na segunda linha)
+    const cols = visible.length === 4 ? 4 : 3;
+    const grid = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': `Acabamentos de ${slot.name}`, style: `--cols:${cols}` });
+    for (const o of visible) {
       const on = o.id === cfg.option;
       const thumb = o.thumbnail
-        ? h('img', { class: 'mat-thumb', src: o.thumbnail, alt: '', loading: 'lazy', decoding: 'async', width: 256, height: 256 })
-        : h('span', { class: 'mat-thumb mat-thumb--solid', style: `background:${linToCss(o.albedoColor)}` });
-      const card = h(
-        'button',
-        {
-          class: `mat-card${on ? ' is-active' : ''}`,
-          type: 'button',
-          role: 'radio',
-          'aria-checked': String(on),
-          onclick: () => this.store.setSlot(slot.id, { option: o.id, variant: o.tintVariants[0]?.id ?? null }),
-          onpointerenter: () => this.events.preload(slot.id, o),
-          onfocus: () => this.events.preload(slot.id, o),
-        },
-        h('span', { class: 'mat-media' }, thumb, on ? h('span', { class: 'mat-check' }, icon(ICONS.check, 14)) : null),
-        h('span', { class: 'mat-name' }, o.name),
-        h('span', { class: 'mat-price' }, o.price ? `${money(o.price.value, o.price.currency)}/m²` : '—'),
+        ? h('img', { class: 'swatch-img', src: o.thumbnail, alt: '', loading: 'lazy', decoding: 'async', width: 256, height: 256 })
+        : h('span', { class: 'swatch-img swatch-img--solid', style: `background:${linToCss(o.albedoColor)}` });
+      grid.append(
+        h(
+          'button',
+          {
+            class: `mat-card${on ? ' is-active' : ''}`,
+            type: 'button',
+            role: 'radio',
+            'aria-checked': String(on),
+            onclick: () => this.store.setSlot(slot.id, { option: o.id, variant: o.tintVariants[0]?.id ?? null }),
+            onpointerenter: () => this.events.preload(slot.id, o),
+            onfocus: () => this.events.preload(slot.id, o),
+          },
+          h('span', { class: 'swatch' }, thumb, on ? h('span', { class: 'swatch-check' }, icon(ICONS.check, 13)) : null),
+          h('span', { class: 'mat-name' }, o.name),
+          h('span', { class: 'mat-price' }, o.price ? `${money(o.price.value, o.price.currency)}/m²` : o.keepOriginal ? 'Incluso' : '—'),
+        ),
       );
-      grid.append(card);
     }
 
     const opt = slot.options.find((o) => o.id === cfg.option)!;
+    const specs: [string, string][] = [];
+    if (opt.sizeM) specs.push(['Módulo', `${num(opt.sizeM[0])} × ${num(opt.sizeM[1])} m`]);
+    if (opt.sku) specs.push(['SKU', opt.sku]);
+    if (!opt.keepOriginal) specs.push(['Reflexo', `${Math.round(opt.glossKeep * 100)}%`]);
+
     const detail = h(
       'div',
-      { class: 'mat-detail' },
-      h('p', { class: 'mat-eyebrow' }, opt.isTest ? 'Material de teste' : opt.keepOriginal ? 'Sem alteração' : 'Selecionado'),
-      h('h3', { class: 'mat-title' }, opt.name),
-      opt.finish ? h('p', { class: 'mat-finish' }, opt.finish) : null,
+      { class: 'detail' },
       h(
-        'dl',
-        { class: 'mat-specs' },
-        opt.sizeM ? [h('dt', {}, 'Módulo'), h('dd', {}, `${num(opt.sizeM[0])} × ${num(opt.sizeM[1])} m`)] : null,
-        opt.sku ? [h('dt', {}, 'SKU'), h('dd', {}, opt.sku)] : null,
-        opt.keepOriginal ? null : [h('dt', {}, 'Reflexo'), h('dd', {}, `${Math.round(opt.glossKeep * 100)}%`)],
+        'div',
+        { class: 'detail-head' },
+        h('div', {},
+          h('p', { class: 'detail-kicker' }, opt.isTest ? 'Material de teste' : opt.keepOriginal ? 'Sem alteração' : 'Selecionado'),
+          h('h3', { class: 'detail-title' }, opt.name),
+        ),
+        opt.price ? h('p', { class: 'detail-price' }, money(opt.price.value, opt.price.currency), h('span', {}, '/m²')) : null,
       ),
+      opt.finish ? h('p', { class: 'detail-finish' }, opt.finish) : null,
+      specs.length ? h('dl', { class: 'specs' }, ...specs.map(([k, v]) => h('div', { class: 'spec' }, h('dt', {}, k), h('dd', {}, v)))) : null,
     );
 
     if (opt.tintVariants.length > 1) {
-      const vs = h('div', { class: 'variants', role: 'radiogroup', 'aria-label': 'Variações de cor' });
+      const vs = h('div', { class: 'tones', role: 'radiogroup', 'aria-label': 'Tonalidade' });
       for (const v of opt.tintVariants) {
-        const sw = h(
+        const b = h(
           'button',
-          {
-            class: 'variant',
-            type: 'button',
-            role: 'radio',
-            title: v.name,
-            onclick: () => this.store.setSlot(slot.id, { variant: v.id }),
-          },
+          { class: 'tone', type: 'button', role: 'radio', onclick: () => this.store.setSlot(slot.id, { variant: v.id }) },
           h('span', {
-            class: 'variant-swatch',
+            class: 'tone-dot',
             style: `${opt.thumbnail ? `background-image:url(${opt.thumbnail});` : ''}background-color:${linToCss(v.tint)}`,
           }),
-          h('span', { class: 'variant-name' }, v.name),
+          v.name,
         );
-        vs.append(sw);
+        vs.append(b);
         this.updaters.push((s) => {
           const on = s.slots[slot.id]?.variant === v.id;
-          sw.classList.toggle('is-active', on);
-          sw.setAttribute('aria-checked', String(on));
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-checked', String(on));
         });
       }
-      detail.append(h('p', { class: 'sub-label' }, 'Tonalidade'), vs);
+      detail.append(h('p', { class: 'field-label' }, 'Tonalidade'), vs);
     }
-    return this.section(2, 'Acabamento', grid, detail);
+
+    return h(
+      'section',
+      { class: 'block' },
+      h('header', { class: 'block-head' }, h('h2', { class: 'block-title' }, 'Acabamento'), h('span', { class: 'block-meta' }, `${visible.length} opções`)),
+      grid,
+      detail,
+    );
   }
 
-  // 03 — Ajuste da textura
-  private sectionTransform(st: ConfigState): HTMLElement {
+  // --- Ajustar textura -------------------------------------------------------------
+
+  private transform(st: ConfigState): HTMLElement {
     const slot = this.slot;
     const cfg = st.slots[slot.id]!;
     const opt = slot.options.find((o) => o.id === cfg.option)!;
     const solid = !opt.diffuseMap;
-    const note = opt.keepOriginal
-      ? 'Material original do render: não há ajustes de textura.'
-      : 'Cor sólida: escala e rotação não se aplicam.';
     const id = (k: string) => `${slot.id}-${k}`;
     const [smin, smax] = slot.scaleRange;
     const set = (patch: Parameters<Store['setSlot']>[1]) => this.store.setSlot(slot.id, patch);
 
-    const sliders: [keyof typeof cfg, Slider][] = [
+    const sliders: ['scale' | 'rotation' | 'ox' | 'oy', Slider][] = [
       ['scale', slider({
         id: id('scale'), label: 'Escala', min: smin, max: smax, step: 0.05, value: cfg.scale, reset: 1,
         format: (v) => `${num(v)}×`, onInput: (v) => set({ scale: v }),
@@ -225,53 +265,54 @@ export class Panel {
     ];
     this.updaters.push((s) => {
       const c = s.slots[slot.id]!;
-      for (const [k, sl] of sliders) sl.set(c[k] as number);
+      for (const [k, sl] of sliders) sl.set(c[k]);
     });
 
-    const quick = h('div', { class: 'quick-rot', role: 'group', 'aria-label': 'Rotação rápida' });
+    const quick = h('div', { class: 'chips', role: 'group', 'aria-label': 'Rotação rápida' });
     for (const deg of [0, 45, 90]) {
       const b = h('button', { class: 'chip', type: 'button', disabled: solid || !slot.allowRotation, onclick: () => set({ rotation: deg }) }, `${deg}°`);
       quick.append(b);
       this.updaters.push((s) => b.classList.toggle('is-active', s.slots[slot.id]!.rotation === deg));
     }
-    const reset = h(
-      'button',
-      { class: 'link-btn', type: 'button', disabled: solid, onclick: () => set({ scale: 1, rotation: 0, ox: 0, oy: 0 }) },
-      icon(ICONS.reset, 15),
-      'Restaurar',
-    );
-    const body = h(
-      'div',
-      { class: 'controls' },
+    const note = opt.keepOriginal
+      ? 'Material original do render: não há ajustes de textura.'
+      : 'Cor sólida: escala e rotação não se aplicam.';
+
+    return this.disclosure(
+      'transform',
+      'Ajustar textura',
+      (s) => {
+        const c = s.slots[slot.id]!;
+        return solid ? '—' : `${num(c.scale)}× · ${Math.round(c.rotation)}°`;
+      },
+      solid ? h('p', { class: 'note' }, note) : null,
       sliders[0]![1].el,
-      h('div', { class: 'rot-wrap' }, sliders[1]![1].el, quick),
+      h('div', {}, sliders[1]![1].el, quick),
       h('div', { class: 'two-col' }, sliders[2]![1].el, sliders[3]![1].el),
-      solid ? h('p', { class: 'muted-note' }, note) : null,
+      h(
+        'button',
+        { class: 'text-btn', type: 'button', disabled: solid, onclick: () => set({ scale: 1, rotation: 0, ox: 0, oy: 0 }) },
+        icon(ICONS.reset, 15),
+        'Restaurar ajustes',
+      ),
     );
-    const sec = this.section(3, 'Ajuste da textura', body);
-    sec.querySelector('.sec-title')!.append(reset);
-    return sec;
   }
 
-  // 04 — Iluminação (LightMix)
-  private sectionLights(st: ConfigState): HTMLElement {
+  // --- Iluminação ------------------------------------------------------------------
+
+  private lights(st: ConfigState): HTMLElement {
     const cam = this.catalog.cameras.find((c) => c.id === st.cam)!;
-    const fmtEv = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${num(Math.abs(v), 1)} EV`;
     const exposure = slider({
       id: 'exposure', label: 'Exposição', min: -EV_RANGE, max: EV_RANGE, step: 0.1, value: st.ev, reset: 0,
       format: fmtEv,
       onInput: (v) => this.store.update((d) => {
         d.ev = Math.round(v * 10) / 10;
       }),
-      hint: 'Ajuste fino da cena inteira. 0 = exposição original do render.',
+      hint: 'Ajusta a cena inteira. 0 = exposição original do render.',
     });
     this.updaters.push((s) => exposure.set(s.ev));
-    const expBox = h('div', { class: 'light light--exposure' }, exposure.el);
-    if (!cam.lightGroups.length) {
-      return this.section(4, 'Iluminação', expBox, h('p', { class: 'muted-note' }, 'Esta câmera não tem grupos de luz.'));
-    }
-    const list = h('div', { class: 'lights' }, expBox);
-    for (const g of cam.lightGroups) {
+
+    const groups = cam.lightGroups.map((g) => {
       const l = st.lights[g.id]!;
       const [kmin, kmax] = kelvinBounds(g.kelvin);
       const stops = [kmin, (kmin + kmax) / 2, kmax].map((k) => kelvinToCss(k)).join(', ');
@@ -290,60 +331,78 @@ export class Panel {
         inten.set(c.intensity);
         temp.set(c.kelvin);
         dot.style.background = kelvinToCss(c.kelvin);
-        dot.style.opacity = String(0.35 + 0.65 * Math.min(1, c.intensity / Math.max(g.range[1], 1e-6) * 1.5));
       });
-      list.append(
-        h(
-          'div',
-          { class: 'light' },
-          h('div', { class: 'light-head' }, h('span', { class: 'light-icon' }, icon(/sun|sol/i.test(g.id + g.name) ? ICONS.sun : ICONS.bulb, 16)), h('span', { class: 'light-name' }, g.name), dot),
-          inten.el,
-          temp.el,
-        ),
-      );
-    }
-    const reset = h(
-      'button',
-      {
-        class: 'link-btn',
-        type: 'button',
-        onclick: () =>
-          this.store.update((d) => {
-            d.ev = 0;
-            for (const g of cam.lightGroups) d.lights[g.id] = { intensity: g.intensity, kelvin: g.kelvin };
-          }),
-      },
-      icon(ICONS.reset, 15),
-      'Original',
-    );
-    const sec = this.section(4, 'Iluminação', list);
-    sec.querySelector('.sec-title')!.append(reset);
-    return sec;
-  }
-
-  // 05 — Orçamento
-  private sectionBudget(): HTMLElement {
-    const box = h('div', { class: 'budget', 'aria-live': 'polite' });
-    this.updaters.push((s) => {
-      const b = budget(this.catalog, s);
-      const rows = this.catalog.slots.map((slot) => {
-        const line = b.lines.find((l) => l.slotId === slot.id);
-        const opt = slot.options.find((o) => o.id === s.slots[slot.id]?.option);
-        return h(
-          'div',
-          { class: 'bud-row' },
-          h('div', { class: 'bud-what' }, h('span', { class: 'bud-slot' }, slot.name), h('span', { class: 'bud-opt' }, opt?.name ?? '')),
-          line
-            ? h('div', { class: 'bud-calc' }, h('span', { class: 'bud-formula' }, `${num(line.area)} m² × ${money(line.unitPrice, line.currency)}`), h('span', { class: 'bud-val' }, money(line.total, line.currency)))
-            : h('div', { class: 'bud-calc' }, h('span', { class: 'bud-formula' }, 'sem preço cadastrado')),
-        );
-      });
-      box.replaceChildren(
-        ...rows,
-        h('div', { class: 'bud-total' }, h('span', { class: 'bud-total-label' }, 'Total estimado'), h('span', { class: 'bud-total-val' }, money(b.total, b.currency))),
-        h('p', { class: 'bud-note' }, 'Valores de referência. Área calculada a partir do modelo 3D.'),
+      return h(
+        'div',
+        { class: 'light' },
+        h('div', { class: 'light-head' }, icon(/sun|sol/i.test(g.id + g.name) ? ICONS.sun : ICONS.bulb, 16), h('span', { class: 'light-name' }, g.name), dot),
+        inten.el,
+        temp.el,
       );
     });
-    return this.section(5, 'Orçamento', box);
+
+    return this.disclosure(
+      'lights',
+      'Iluminação',
+      (s) => {
+        const changed = cam.lightGroups.filter((g) => {
+          const c = s.lights[g.id]!;
+          return c.intensity !== g.intensity || c.kelvin !== g.kelvin;
+        }).length;
+        return `${fmtEv(s.ev)}${cam.lightGroups.length ? ` · ${changed ? `${changed} ajustada${changed > 1 ? 's' : ''}` : 'original'}` : ''}`;
+      },
+      exposure.el,
+      ...groups,
+      cam.lightGroups.length ? null : h('p', { class: 'note' }, 'Esta câmera não tem grupos de luz.'),
+      h(
+        'button',
+        {
+          class: 'text-btn',
+          type: 'button',
+          onclick: () =>
+            this.store.update((d) => {
+              d.ev = 0;
+              for (const g of cam.lightGroups) d.lights[g.id] = { intensity: g.intensity, kelvin: g.kelvin };
+            }),
+        },
+        icon(ICONS.reset, 15),
+        'Voltar à luz original',
+      ),
+    );
+  }
+
+  // --- Rodapé: orçamento + export ----------------------------------------------------
+
+  private footer(): HTMLElement {
+    const lines = h('div', { class: 'bud-lines' });
+    const total = h('strong', { class: 'bud-total-val' });
+    this.footUpdaters.push((s) => {
+      const b = budget(this.catalog, s);
+      lines.replaceChildren(
+        ...this.catalog.slots.map((slot) => {
+          const line = b.lines.find((l) => l.slotId === slot.id);
+          const opt = slot.options.find((o) => o.id === s.slots[slot.id]?.option);
+          return h(
+            'div',
+            { class: 'bud-row' },
+            h('span', { class: 'bud-what' }, h('span', { class: 'bud-slot' }, slot.name), h('span', { class: 'bud-opt' }, opt?.name ?? '')),
+            h('span', { class: 'bud-val', title: line ? `${num(line.area)} m² × ${money(line.unitPrice, line.currency)}` : '' }, line ? money(line.total, line.currency) : '—'),
+          );
+        }),
+      );
+      total.textContent = money(b.total, b.currency);
+    });
+    return h(
+      'footer',
+      { class: 'panel-foot' },
+      h(
+        'details',
+        { class: 'bud' },
+        h('summary', { class: 'bud-sum' }, h('span', { class: 'bud-label' }, 'Total estimado', icon(ICONS.chevron, 14)), total),
+        lines,
+        h('p', { class: 'bud-note' }, 'Área × preço por m². Valores de referência.'),
+      ),
+      this.exportBtn,
+    );
   }
 }

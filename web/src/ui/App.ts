@@ -72,23 +72,24 @@ export async function startApp(root: HTMLElement): Promise<void> {
       camera: cam.name,
       projects: project.projects,
       current: project.id,
+    },
+    {
       onProject: (id) => {
         location.search = `?project=${encodeURIComponent(id)}`;
       },
-    },
-    {
-      onCompare: () => {},
       onSplit: (x) => compositor?.setSplit(x),
       onChecker: () => toggleChecker(),
       onCopyLink: () => void copyLink(),
-      onExport: () => void doExport(),
       onDebug: (m) => {
         compositor?.setDebug(m);
         void reportMemory();
       },
     },
   );
-  const panel = new Panel(catalog, store, { preload: (_slot, o) => compositor?.preload(o) });
+  const panel = new Panel(catalog, store, {
+    preload: (_slot, o) => compositor?.preload(o),
+    onExport: () => void doExport(),
+  });
   root.replaceChildren(stage.el, panel.el);
   stage.setPoster(cam.passes.beautyDisplay, cam.viewResolution[0], cam.viewResolution[1]);
 
@@ -175,7 +176,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
   }
 
   async function doExport(): Promise<void> {
-    stage.setBusy(true, 'Gerando PNG…');
+    panel.setBusy(true);
     try {
       const r = await exportImage(compositor);
       handle.lastExport = r;
@@ -188,7 +189,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
       console.error(e);
       stage.toast(`Não foi possível exportar: ${(e as Error).message}`, 'warn', 6500);
     } finally {
-      stage.setBusy(false);
+      panel.setBusy(false);
       void reportMemory();
     }
   }
@@ -243,7 +244,7 @@ function errorScreen(e: unknown): HTMLElement {
       h('p', { class: 'empty-text' }, missing ? 'Gere a sala de teste sintética e recarregue a página:' : msg),
       missing ? h('pre', { class: 'empty-code' }, 'python tools/make_test_assets.py') : null,
       missing ? h('p', { class: 'empty-small' }, msg) : null,
-      h('button', { class: 'tb-btn tb-btn--primary', type: 'button', onclick: () => location.reload() }, icon(ICONS.rotate, 16), h('span', { class: 'tb-label' }, 'Recarregar')),
+      h('button', { class: 'btn btn--primary', type: 'button', onclick: () => location.reload() }, icon(ICONS.rotate, 16), h('span', { class: 'btn-label' }, 'Recarregar')),
     ),
   );
 }

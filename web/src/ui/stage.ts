@@ -1,15 +1,21 @@
-// Palco: o render em tela cheia, comparador antes/depois, barra de ações, carregamento e debug.
+// Palco: barra superior (projeto + ações do render), o render emoldurado, comparador, carregamento e debug.
 import { DebugMode } from '../engine/Compositor';
 import type { ProjectEntry } from './App';
 import { h, icon, ICONS } from './dom';
 
 export interface StageActions {
-  onCompare(on: boolean): void;
   onSplit(x: number): void;
   onChecker(): void;
   onCopyLink(): void;
-  onExport(): void;
   onDebug(mode: DebugMode): void;
+  onProject(id: string): void;
+}
+
+export interface StageTitle {
+  project: string;
+  camera: string;
+  projects: ProjectEntry[];
+  current: string;
 }
 
 const DEBUG_MODES: [DebugMode, string][] = [
@@ -33,23 +39,15 @@ export class Stage {
   private readonly debugBar: HTMLElement;
   private readonly memLabel: HTMLElement;
   private readonly toastEl: HTMLElement;
-  private readonly buttons: Record<'compare' | 'checker' | 'link' | 'export', HTMLButtonElement>;
+  private readonly btnCompare: HTMLButtonElement;
+  private readonly btnChecker: HTMLButtonElement;
   private aspect = 16 / 9;
   private split = 0.5;
   private comparing = false;
   private toastTimer = 0;
   onResize: ((w: number, h: number) => void) | null = null;
 
-  constructor(
-    title: {
-      project: string;
-      camera: string;
-      projects?: ProjectEntry[];
-      current?: string;
-      onProject?: (id: string) => void;
-    },
-    private readonly actions: StageActions,
-  ) {
+  constructor(title: StageTitle, private readonly actions: StageActions) {
     this.canvas = h('canvas', { class: 'frame-canvas', 'aria-label': 'Render configurado do ambiente', role: 'img' });
     this.poster = h('img', { class: 'frame-poster', alt: '', decoding: 'async' });
     this.progress = h('div', { class: 'loader-bar' });
@@ -80,21 +78,22 @@ export class Stage {
     );
     this.well = h('div', { class: 'stage-well' }, this.frame);
 
-    const btn = (cls: string, ic: string, label: string, shortcut: string | null, onclick: () => void) =>
+    const tool = (ic: string, label: string, shortcut: string, onclick: () => void) =>
       h(
         'button',
-        { class: `tb-btn ${cls}`, type: 'button', title: shortcut ? `${label} (${shortcut})` : label, onclick },
-        icon(ic, 18),
-        h('span', { class: 'tb-label' }, label),
+        { class: 'tool', type: 'button', title: `${label} (${shortcut})`, 'aria-pressed': 'false', onclick },
+        icon(ic, 17),
+        h('span', { class: 'tool-label' }, label),
+        h('kbd', { class: 'tool-kbd', 'aria-hidden': 'true' }, shortcut),
       );
-    this.buttons = {
-      compare: btn('', ICONS.split, 'Antes / depois', 'C', () => this.setCompare(!this.comparing)),
-      checker: btn('', ICONS.checker, 'Grade de teste', 'T', () => actions.onChecker()),
-      link: btn('', ICONS.link, 'Copiar link', null, () => actions.onCopyLink()),
-      export: btn('tb-btn--primary', ICONS.download, 'Baixar imagem', null, () => actions.onExport()),
-    };
-    this.buttons.compare.setAttribute('aria-pressed', 'false');
-    this.buttons.checker.setAttribute('aria-pressed', 'false');
+    this.btnCompare = tool(ICONS.split, 'Antes / depois', 'C', () => this.setCompare(!this.comparing));
+    this.btnChecker = tool(ICONS.checker, 'Grade de teste', 'T', () => actions.onChecker());
+    const btnLink = h(
+      'button',
+      { class: 'tool', type: 'button', title: 'Copiar link da configuração', onclick: () => actions.onCopyLink() },
+      icon(ICONS.link, 17),
+      h('span', { class: 'tool-label' }, 'Copiar link'),
+    );
 
     this.memLabel = h('span', { class: 'dbg-mem' });
     const seg = h('div', { class: 'dbg-seg', role: 'radiogroup', 'aria-label': 'Modo de depuração' });
@@ -106,53 +105,48 @@ export class Stage {
     this.debugBar = h(
       'div',
       { class: 'dbg', hidden: true },
-      icon(ICONS.scan, 16),
+      h('span', { class: 'dbg-title' }, icon(ICONS.scan, 15), 'Depuração'),
       seg,
       this.memLabel,
-      h('button', { class: 'dbg-close', type: 'button', 'aria-label': 'Fechar depuração', onclick: () => this.toggleDebug(false) }, icon(ICONS.close, 14)),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Fechar depuração', onclick: () => this.toggleDebug(false) }, icon(ICONS.close, 15)),
     );
 
     this.toastEl = h('div', { class: 'toast', role: 'status', 'aria-live': 'polite' });
+
+    const projectEl =
+      title.projects.length > 1
+        ? h(
+            'label',
+            { class: 'project-switch' },
+            h('span', { class: 'sr-only' }, 'Projeto'),
+            h(
+              'select',
+              { class: 'project-name project-select', onchange: (e: Event) => actions.onProject((e.target as HTMLSelectElement).value) },
+              ...title.projects.map((p) => h('option', { value: p.id, selected: p.id === title.current }, p.name)),
+            ),
+            icon(ICONS.chevron, 16),
+          )
+        : h('h1', { class: 'project-name' }, title.project);
 
     this.el = h(
       'main',
       { class: 'stage' },
       h(
         'header',
-        { class: 'stage-head' },
+        { class: 'topbar' },
         h(
           'div',
-          { class: 'brand' },
-          h('span', { class: 'brand-mark', 'aria-hidden': 'true' }),
-          h('span', { class: 'brand-name' }, 'Compose'),
+          { class: 'topbar-id' },
+          h('span', { class: 'logo', 'aria-hidden': 'true' }, h('span'), h('span')),
+          h('span', { class: 'logo-word' }, 'Compose'),
+          h('span', { class: 'topbar-sep', 'aria-hidden': 'true' }, '/'),
+          projectEl,
+          h('span', { class: 'cam-chip' }, icon(ICONS.camera, 14), title.camera),
         ),
-        h(
-          'div',
-          { class: 'title' },
-          title.projects && title.projects.length > 1
-            ? h(
-                'label',
-                { class: 'title-switch' },
-                h('span', { class: 'sr-only' }, 'Projeto'),
-                h(
-                  'select',
-                  {
-                    class: 'title-project title-select',
-                    onchange: (e: Event) => title.onProject?.((e.target as HTMLSelectElement).value),
-                  },
-                  ...title.projects.map((p) =>
-                    h('option', { value: p.id, selected: p.id === title.current }, p.name),
-                  ),
-                ),
-                icon(ICONS.chevron, 18),
-              )
-            : h('h1', { class: 'title-project' }, title.project),
-          h('span', { class: 'title-cam' }, title.camera),
-        ),
+        h('nav', { class: 'tools', 'aria-label': 'Ações do render' }, this.btnCompare, this.btnChecker, btnLink),
       ),
       this.well,
       this.debugBar,
-      h('nav', { class: 'toolbar', 'aria-label': 'Ações' }, this.buttons.compare, this.buttons.checker, h('span', { class: 'tb-sep', 'aria-hidden': 'true' }), this.buttons.link, this.buttons.export),
       this.toastEl,
     );
 
@@ -185,7 +179,7 @@ export class Stage {
   setProgress(loaded: number, total: number): void {
     const pct = total ? (loaded / total) * 100 : 0;
     this.progress.style.setProperty('--pct', `${pct}%`);
-    this.progressLabel.textContent = total ? `Carregando passes · ${loaded}/${total}` : 'Preparando a cena…';
+    this.progressLabel.textContent = total ? `Carregando passes ${loaded} de ${total}` : 'Preparando a cena…';
   }
 
   setReady(): void {
@@ -193,14 +187,8 @@ export class Stage {
     this.frame.classList.add('is-ready');
   }
 
-  setBusy(busy: boolean, label?: string): void {
-    this.buttons.export.disabled = busy;
-    this.buttons.export.classList.toggle('is-busy', busy);
-    this.buttons.export.querySelector('.tb-label')!.textContent = busy ? (label ?? 'Gerando…') : 'Baixar imagem';
-  }
-
   setCheckerActive(on: boolean): void {
-    this.buttons.checker.setAttribute('aria-pressed', String(on));
+    this.btnChecker.setAttribute('aria-pressed', String(on));
   }
 
   // --- Comparador ----------------------------------------------------------------
@@ -208,8 +196,7 @@ export class Stage {
   setCompare(on: boolean): void {
     this.comparing = on;
     this.frame.classList.toggle('is-comparing', on);
-    this.buttons.compare.setAttribute('aria-pressed', String(on));
-    this.actions.onCompare(on);
+    this.btnCompare.setAttribute('aria-pressed', String(on));
     this.applySplit();
   }
 
