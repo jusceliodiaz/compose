@@ -13,6 +13,7 @@ from pathlib import Path
 import exr_io
 import make_test_assets as mta
 import pack_uv
+from catalog_index import update_index
 
 ROOT = Path(__file__).resolve().parents[1]
 CAM = "assets/scenes/test_room/cam_main"
@@ -110,6 +111,7 @@ def build_all(assets: Path) -> Path:
     cat_path = assets / "catalog" / "test_room.json"
     cat_path.parent.mkdir(parents=True, exist_ok=True)
     cat_path.write_text(json.dumps(catalog(rng, w, h), indent=2, ensure_ascii=False), encoding="utf-8")
+    update_index(cat_path.parent, "test_room", "Sala de teste")
     print(f"catálogo: {cat_path}  uv_range = {[round(v, 4) for v in rng]}")
     return cat_path
 

@@ -47,3 +47,24 @@ Descobertas feitas durante a construção (versões, APIs que não se comportara
   resolução nativa. Com prefixo, cada passe é carregado como `prefixo + nome_do_arquivo`.
 - Fontes da interface vêm do Google Fonts (Instrument Serif, Hanken Grotesk, IBM Plex Mono), com
   fallback de sistema se estiver offline.
+
+## Primeira importação do Corona (cozinha_ilha / cam1) — 2026-10-19
+
+3ds Max 2025.2, Corona (classes: CShading_RawComponent, CShading_SourceColor, CShading_Components,
+CGeometry_UvwCoords, CMasking_Mask, CShading_LightSelect). Unidades da cena em cm; UV_config no canal 2
+em metros (piso 8,41 × 6,14 m; parede 9,26 × 3,59 m). Resolução 2000×1500.
+
+Problemas encontrados nos EXRs de `renders/cam1`:
+- **masks_a preto**: o CMasking_Mask estava em `mode = 0` com os objetos nas listas `nodesR/G/B`
+  (que só valem no modo por nós). Contorno: `tools/derive_masks.py` (máscara PROVISÓRIA: parede = albedo
+  constante do reboco; piso = resto do UV abaixo de 60% da altura).
+- **passes com tone mapping**: beauty máx 0,996, diff_light máx 0,977; reconstrução = 15 dB. Os EXRs
+  saíram display-referred. Contorno: `--light-from-beauty` grava `luz = beauty / albedo^p`, com `p`
+  (expoente da curva) estimado pelos detalhes finos do albedo (p = 0,572 nesta cena), e o shader faz
+  `albedo_novo^p × luz` (`tone_mapping.relight_power`). Para o material original é identidade exata.
+- **lg_interno vazio** (a malha LIGHT não contribui); Σ lg = 33 dB. O importador ignora grupos vazios.
+- **ilha de mármore sem UV no canal 2** (preta no uv.exr): não dá para criar o slot.
+- `cam1_output_*.exr` são cópias idênticas; o importador prefere `PREFIXO + elemento`.
+
+Para um render definitivo: modo do CMasking_Mask por nós (ou G-Buffer ID), tone mapping neutro de verdade
+(exposição 0, sem filmic/ACES/LUT, highlight compression 1) e UV_config na ilha.

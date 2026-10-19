@@ -115,7 +115,7 @@ export class Compositor {
         u_glossKeep: u(new Array<number>(MAX_SLOTS).fill(0.6)),
         u_slotSelect: u(Array.from({ length: MAX_SLOTS }, () => new THREE.Vector3(1, 0, 0))),
         u_slotMaskFile: u(new Array<number>(MAX_SLOTS).fill(0)),
-        u_seamThreshold: u(0.02),
+        u_seamThreshold: u(0.02), u_albedoPower: u(1),
         u_lightCount: u(0), u_lightMixOn: u(false),
         u_lg0: u(this.black), u_lg1: u(this.black), u_lg2: u(this.black), u_lg3: u(this.black),
         u_lightTint: u(Array.from({ length: MAX_LG }, () => new THREE.Vector3(1, 1, 1))),
@@ -167,6 +167,7 @@ export class Compositor {
     const U = this.material.uniforms;
     U.u_exposure!.value = cam.tone.exposure;
     U.u_toneOp!.value = TONE_OPS[cam.tone.operator];
+    U.u_albedoPower!.value = cam.tone.relightPower;
     U.u_slotCount!.value = Math.min(catalog.slots.length, MAX_SLOTS);
 
     this.slots.clear();
@@ -179,8 +180,6 @@ export class Compositor {
           transform: { scale: 1, rotationDeg: 0, offset: [0, 0] }, albedo, req: 0,
         };
         this.slots.set(slot.id, st);
-        const ch = { r: 0, g: 1, b: 2 }[slot.channel];
-        (U.u_slotSelect!.value as THREE.Vector3[])[i]!.set(ch === 0 ? 1 : 0, ch === 1 ? 1 : 0, ch === 2 ? 1 : 0);
         (U.u_slotMaskFile!.value as number[])[i] = Math.max(0, cam.passes.maskFiles.indexOf(slot.maskFile));
         this.applySlot(slot.id);
       }),
@@ -270,6 +269,9 @@ export class Compositor {
     (U.u_rotation!.value as number[])[idx] = THREE.MathUtils.degToRad(o.defaultRotationDeg + st.transform.rotationDeg);
     (U.u_offset!.value as THREE.Vector2[])[idx]!.set(st.transform.offset[0], st.transform.offset[1]);
     (U.u_glossKeep!.value as number[])[idx] = o.glossKeep;
+    // "Original do render": máscara zerada → o slot mostra o beauty sem alteração
+    const ch = o.keepOriginal ? -1 : { r: 0, g: 1, b: 2 }[st.slot.channel];
+    (U.u_slotSelect!.value as THREE.Vector3[])[idx]!.set(ch === 0 ? 1 : 0, ch === 1 ? 1 : 0, ch === 2 ? 1 : 0);
     U[`u_albedo${idx}`]!.value = st.albedo;
     this.requestRender();
   }

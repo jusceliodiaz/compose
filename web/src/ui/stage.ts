@@ -1,5 +1,6 @@
 // Palco: o render em tela cheia, comparador antes/depois, barra de ações, carregamento e debug.
 import { DebugMode } from '../engine/Compositor';
+import type { ProjectEntry } from './App';
 import { h, icon, ICONS } from './dom';
 
 export interface StageActions {
@@ -40,7 +41,13 @@ export class Stage {
   onResize: ((w: number, h: number) => void) | null = null;
 
   constructor(
-    title: { project: string; camera: string },
+    title: {
+      project: string;
+      camera: string;
+      projects?: ProjectEntry[];
+      current?: string;
+      onProject?: (id: string) => void;
+    },
     private readonly actions: StageActions,
   ) {
     this.canvas = h('canvas', { class: 'frame-canvas', 'aria-label': 'Render configurado do ambiente', role: 'img' });
@@ -122,7 +129,24 @@ export class Stage {
         h(
           'div',
           { class: 'title' },
-          h('h1', { class: 'title-project' }, title.project),
+          title.projects && title.projects.length > 1
+            ? h(
+                'label',
+                { class: 'title-switch' },
+                h('span', { class: 'sr-only' }, 'Projeto'),
+                h(
+                  'select',
+                  {
+                    class: 'title-project title-select',
+                    onchange: (e: Event) => title.onProject?.((e.target as HTMLSelectElement).value),
+                  },
+                  ...title.projects.map((p) =>
+                    h('option', { value: p.id, selected: p.id === title.current }, p.name),
+                  ),
+                ),
+                icon(ICONS.chevron, 18),
+              )
+            : h('h1', { class: 'title-project' }, title.project),
           h('span', { class: 'title-cam' }, title.camera),
         ),
       ),

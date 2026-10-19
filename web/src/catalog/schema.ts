@@ -24,6 +24,8 @@ export interface RawOption {
   price?: RawPrice;
   finish?: string;
   is_test?: boolean;
+  /** Mostra o material do próprio render (o slot não é alterado). */
+  keep_original?: boolean;
 }
 
 export interface RawSlot {
@@ -54,7 +56,8 @@ export interface RawCatalog {
   camera: string;
   camera_name?: string;
   resolution?: { view?: Vec2; export?: Vec2 };
-  tone_mapping?: { operator?: ToneOperator; exposure?: number };
+  /** relight_power: expoente p quando os passes já vêm com tone mapping (shaded = albedo^p × luz). */
+  tone_mapping?: { operator?: ToneOperator; exposure?: number; relight_power?: number };
   base_passes: {
     beauty: string;
     beauty_linear?: string;
@@ -93,6 +96,7 @@ export interface MaterialOption {
   price: RawPrice | null;
   finish: string;
   isTest: boolean;
+  keepOriginal: boolean;
 }
 
 export interface Slot {
@@ -136,7 +140,7 @@ export interface CameraDef {
   name: string;
   viewResolution: Vec2;
   exportResolution: Vec2;
-  tone: { operator: ToneOperator; exposure: number };
+  tone: { operator: ToneOperator; exposure: number; relightPower: number };
   passes: CameraPasses;
   lightGroups: LightGroup[];
 }
@@ -230,7 +234,7 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
 
     const slotGloss = isNum(s.gloss_keep) ? s.gloss_keep : DEFAULT_GLOSS_KEEP;
     const options: MaterialOption[] = (s.options ?? []).map((o) => {
-      if (!o.diffuse_map && !isVec(o.albedo_color, 3)) p.push(`${s.id}/${o.id}: sem diffuse_map nem albedo_color`);
+      if (!o.diffuse_map && !isVec(o.albedo_color, 3) && !o.keep_original) p.push(`${s.id}/${o.id}: sem diffuse_map nem albedo_color`);
       const size = isVec(o.texture_size_m, 2) ? (o.texture_size_m as Vec2) : null;
       const tiling: Vec2 = size
         ? [1 / size[0], 1 / size[1]]
@@ -252,6 +256,7 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
         price: o.price ?? null,
         finish: o.finish ?? '',
         isTest: o.is_test === true,
+        keepOriginal: o.keep_original === true,
       };
     });
     if (!options.some((o) => o.id === s.default_texture)) {
@@ -295,6 +300,7 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
     tone: {
       operator: c.tone_mapping?.operator ?? 'agx',
       exposure: isNum(c.tone_mapping?.exposure) ? c.tone_mapping!.exposure! : 1,
+      relightPower: isNum(c.tone_mapping?.relight_power) ? c.tone_mapping!.relight_power! : 1,
     },
     passes: {
       beautyDisplay: url(bp.beauty),

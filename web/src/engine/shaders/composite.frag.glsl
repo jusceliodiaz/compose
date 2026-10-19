@@ -36,6 +36,7 @@ uniform float u_glossKeep[3];
 uniform vec3  u_slotSelect[3];   // one-hot do canal na máscara
 uniform float u_slotMaskFile[3]; // 0 → u_mask0, 1 → u_mask1
 uniform float u_seamThreshold;
+uniform float u_albedoPower;     // 1 = passes lineares; p < 1 quando os passes já vêm com tone mapping
 
 // --- LightMix (até 4 grupos, método da razão) ----------------------------------------
 uniform int       u_lightCount;
@@ -128,7 +129,8 @@ vec3 sampleAlbedo(sampler2D albedoTex, int i, vec2 uv, vec2 duvdx, vec2 duvdy) {
     // costura de UV (ou borda do slot): derivada enorme → zera para não cair no mip mais borrado
     if (max(dot(dx, dx), dot(dy, dy)) > u_seamThreshold) { dx = vec2(0.0); dy = vec2(0.0); }
     // SEM fract(): o wrap REPEAT da textura cuida da repetição
-    return textureGrad(albedoTex, tuv, dx, dy).rgb * u_tint[i];
+    vec3 a = textureGrad(albedoTex, tuv, dx, dy).rgb * u_tint[i];
+    return u_albedoPower == 1.0 ? a : pow(max(a, vec3(0.0)), vec3(u_albedoPower));
 }
 
 // Reilumina o material com a luz calculada pelo renderizador offline.

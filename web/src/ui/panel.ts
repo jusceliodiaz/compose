@@ -145,7 +145,7 @@ export class Panel {
     const detail = h(
       'div',
       { class: 'mat-detail' },
-      h('p', { class: 'mat-eyebrow' }, opt.isTest ? 'Material de teste' : 'Selecionado'),
+      h('p', { class: 'mat-eyebrow' }, opt.isTest ? 'Material de teste' : opt.keepOriginal ? 'Sem alteração' : 'Selecionado'),
       h('h3', { class: 'mat-title' }, opt.name),
       opt.finish ? h('p', { class: 'mat-finish' }, opt.finish) : null,
       h(
@@ -153,7 +153,7 @@ export class Panel {
         { class: 'mat-specs' },
         opt.sizeM ? [h('dt', {}, 'Módulo'), h('dd', {}, `${num(opt.sizeM[0])} × ${num(opt.sizeM[1])} m`)] : null,
         opt.sku ? [h('dt', {}, 'SKU'), h('dd', {}, opt.sku)] : null,
-        [h('dt', {}, 'Reflexo'), h('dd', {}, `${Math.round(opt.glossKeep * 100)}%`)],
+        opt.keepOriginal ? null : [h('dt', {}, 'Reflexo'), h('dd', {}, `${Math.round(opt.glossKeep * 100)}%`)],
       ),
     );
 
@@ -193,6 +193,9 @@ export class Panel {
     const cfg = st.slots[slot.id]!;
     const opt = slot.options.find((o) => o.id === cfg.option)!;
     const solid = !opt.diffuseMap;
+    const note = opt.keepOriginal
+      ? 'Material original do render: não há ajustes de textura.'
+      : 'Cor sólida: escala e rotação não se aplicam.';
     const id = (k: string) => `${slot.id}-${k}`;
     const [smin, smax] = slot.scaleRange;
     const set = (patch: Parameters<Store['setSlot']>[1]) => this.store.setSlot(slot.id, patch);
@@ -243,7 +246,7 @@ export class Panel {
       sliders[0]![1].el,
       h('div', { class: 'rot-wrap' }, sliders[1]![1].el, quick),
       h('div', { class: 'two-col' }, sliders[2]![1].el, sliders[3]![1].el),
-      solid ? h('p', { class: 'muted-note' }, 'Cor sólida: escala e rotação não se aplicam.') : null,
+      solid ? h('p', { class: 'muted-note' }, note) : null,
     );
     const sec = this.section(3, 'Ajuste da textura', body);
     sec.querySelector('.sec-title')!.append(reset);

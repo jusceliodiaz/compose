@@ -6,4 +6,4 @@ renders/
 # assets gerados (python tools/make_test_assets.py)
 web/public/assets/scenes/
 web/public/assets/materials/
-web/public/assets/catalog/test_room.json
+web/public/assets/catalog/*.json

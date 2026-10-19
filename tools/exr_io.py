@@ -109,14 +109,42 @@ def srgb_to_linear(c: np.ndarray) -> np.ndarray:
     return np.where(c <= 0.04045, c / 12.92, np.power((c + 0.055) / 1.055, 2.4))
 
 
+# Matrizes do AgX (mesmas do shader / three.js). GLSL é column-major: cada vec3 é uma COLUNA.
+_SRGB_TO_REC2020 = np.array([[0.6274, 0.0691, 0.0164], [0.3293, 0.9195, 0.0880], [0.0433, 0.0113, 0.8956]]).T
+_REC2020_TO_SRGB = np.array([[1.6605, -0.1246, -0.0182], [-0.5876, 1.1329, -0.1006], [-0.0728, -0.0083, 1.1187]]).T
+_AGX_INSET = np.array([[0.856627153315983, 0.137318972929847, 0.11189821299995],
+                       [0.0951212405381588, 0.761241990602591, 0.0767994186031903],
+                       [0.0482516061458583, 0.101439036467562, 0.811302368396859]]).T
+_AGX_OUTSET = np.array([[1.1271005818144368, -0.1413297634984383, -0.14132976349843826],
+                        [-0.11060664309660323, 1.157823702216272, -0.11060664309660294],
+                        [-0.016493938717834573, -0.016493938717834257, 1.2519364065950405]]).T
+
+
+def _agx(x: np.ndarray) -> np.ndarray:
+    c = x[..., :3] @ (_AGX_INSET @ _SRGB_TO_REC2020).T
+    c = np.clip((np.log2(np.maximum(c, 1e-10)) + 12.47393) / (4.026069 + 12.47393), 0.0, 1.0)
+    c2 = c * c
+    c4 = c2 * c2
+    c = 15.5 * c4 * c2 - 40.14 * c4 * c + 31.96 * c4 - 6.868 * c2 * c + 0.4298 * c2 + 0.1191 * c - 0.00232
+    c = c @ _AGX_OUTSET.T
+    c = np.power(np.maximum(c, 0.0), 2.2)
+    return np.clip(c @ _REC2020_TO_SRGB.T, 0.0, 1.0)
+
+
 def tonemap(hdr: np.ndarray, operator: str = "standard", exposure: float = 1.0) -> np.ndarray:
-    """Mesmo tone mapping do shader. Só `standard` (clamp) e `aces` são espelhados aqui."""
+    """Mesmo tone mapping do shader (standard = clamp, aces, agx)."""
     x = hdr * exposure
     if operator == "standard":
         return np.clip(x, 0.0, 1.0)
     if operator == "aces":
         return np.clip((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0)
-    raise ValueError(f"tone mapping '{operator}' não suportado nas ferramentas (use standard ou aces)")
+    if operator == "agx":
+        return _agx(x)
+    raise ValueError(f"tone mapping '{operator}' desconhecido (use standard, aces ou agx)")
+
+
+def luminance(rgb: np.ndarray) -> np.ndarray:
+    return rgb[..., 0] * 0.2126 + rgb[..., 1] * 0.7152 + rgb[..., 2] * 0.0722
 
 
 def to_u8(x01: np.ndarray) -> np.ndarray:

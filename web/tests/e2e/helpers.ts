@@ -6,7 +6,8 @@ export interface Probe { x: number; y: number; mask: number; u: number; v: numbe
 export async function openApp(page: Page, query = ''): Promise<void> {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`/${query}`);
+  // os testes usam sempre a sala sintética (o projeto padrão do índice pode ser outro)
+  await page.goto(`/?project=test_room${query ? `&${query.replace(/^\?/, '')}` : ''}`);
   await page.waitForFunction(() => (window as any).__compose?.ready, null, { timeout: 30_000 });
   await page.evaluate(() => (window as any).__compose.ready);
   if (errors.length) throw new Error(errors.join('\n'));

@@ -150,6 +150,51 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
+.title-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-2);
+}
+
+.title-select {
+  appearance: none;
+  -webkit-appearance: none;
+  max-width: 100%;
+  padding: 0 26px 2px 0;
+  margin-right: -22px;
+  border: 0;
+  border-bottom: 1px dashed var(--line-2);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.title-select option {
+  font: 400 15px var(--f-ui);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.title-switch svg {
+  pointer-events: none;
+}
+
+.title-switch:hover .title-select {
+  border-bottom-color: var(--accent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .title-cam {
   font: 500 11px/1 var(--f-mono);
   letter-spacing: 0.14em;

@@ -141,7 +141,7 @@ def validate(cat: dict, root: Path) -> Checker:
             oid = f"{sid}/{o.get('id')}"
             if "diffuse_map" in o:
                 c.file(o["diffuse_map"], f"{oid}.diffuse_map")
-            elif "albedo_color" not in o:
+            elif "albedo_color" not in o and not o.get("keep_original"):
                 c.err(f"{oid}: precisa de diffuse_map ou albedo_color")
             if "thumbnail" in o:
                 c.file(o["thumbnail"], f"{oid}.thumbnail")

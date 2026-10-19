@@ -9,7 +9,33 @@ import { h, icon, ICONS } from './dom';
 import { Panel } from './panel';
 import { Stage } from './stage';
 
-const CATALOG_URL = `${import.meta.env.BASE_URL}assets/catalog/test_room.json`;
+const BASE = import.meta.env.BASE_URL;
+
+export interface ProjectEntry {
+  id: string;
+  name: string;
+  catalog: string;
+}
+
+/** Projeto atual: ?project= na URL → padrão do index.json → sala de teste. */
+async function resolveProject(): Promise<{ id: string; url: string; projects: ProjectEntry[] }> {
+  let projects: ProjectEntry[] = [];
+  let def = 'test_room';
+  try {
+    const r = await fetch(`${BASE}assets/catalog/index.json`);
+    if (r.ok) {
+      const idx = (await r.json()) as { default?: string; projects?: ProjectEntry[] };
+      projects = idx.projects ?? [];
+      def = idx.default ?? def;
+    }
+  } catch {
+    /* sem índice: segue com a sala de teste */
+  }
+  const asked = new URLSearchParams(location.search).get('project');
+  const id = projects.some((p) => p.id === asked) ? asked! : asked && !projects.length ? asked : def;
+  const entry = projects.find((p) => p.id === id);
+  return { id, url: `${BASE}${entry?.catalog ?? `assets/catalog/${id}.json`}`, projects };
+}
 
 export interface ComposeDebugHandle {
   compositor: Compositor;
@@ -27,8 +53,9 @@ declare global {
 
 export async function startApp(root: HTMLElement): Promise<void> {
   let catalog: NormalizedCatalog;
+  const project = await resolveProject();
   try {
-    catalog = await loadCatalog(CATALOG_URL);
+    catalog = await loadCatalog(project.url);
   } catch (e) {
     root.replaceChildren(errorScreen(e));
     return;
@@ -40,7 +67,15 @@ export async function startApp(root: HTMLElement): Promise<void> {
   let compositor: Compositor;
 
   const stage = new Stage(
-    { project: catalog.projectName, camera: cam.name },
+    {
+      project: catalog.projectName,
+      camera: cam.name,
+      projects: project.projects,
+      current: project.id,
+      onProject: (id) => {
+        location.search = `?project=${encodeURIComponent(id)}`;
+      },
+    },
     {
       onCompare: () => {},
       onSplit: (x) => compositor?.setSplit(x),
@@ -93,7 +128,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
   function writeUrl(s: ConfigState): void {
     window.clearTimeout(urlTimer);
     urlTimer = window.setTimeout(() => {
-      const q = serializeState(s, catalog).toString();
+      const q = `project=${encodeURIComponent(project.id)}&${serializeState(s, catalog)}`;
       history.replaceState(null, '', `${location.pathname}?${q}${location.hash}`);
     }, 120);
   }
@@ -129,7 +164,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
 
   async function copyLink(): Promise<void> {
     writeUrl(store.get());
-    const url = `${location.origin}${location.pathname}?${serializeState(store.get(), catalog)}`;
+    const url = `${location.origin}${location.pathname}?project=${encodeURIComponent(project.id)}&${serializeState(store.get(), catalog)}`;
     try {
       await navigator.clipboard.writeText(url);
       stage.toast('Link da configuração copiado.');
