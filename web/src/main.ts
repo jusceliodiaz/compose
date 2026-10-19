@@ -1,8 +1,19 @@
-import * as THREE from 'three';
+import { loadCatalog } from './catalog/loadCatalog';
+import { Compositor } from './engine/Compositor';
 
+// Harness do Marco 4 (substituído pela interface no Marco 5)
 const canvas = document.querySelector<HTMLCanvasElement>('#view')!;
-const renderer = new THREE.WebGLRenderer({ canvas });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight, false);
-renderer.setClearColor(0x000000, 1);
-renderer.clear();
+const compositor = new Compositor(canvas);
+const ready = (async () => {
+  const catalog = await loadCatalog(`${import.meta.env.BASE_URL}assets/catalog/test_room.json`);
+  await compositor.setCamera(catalog, catalog.cameras[0]!.id);
+  const q = new URLSearchParams(location.search);
+  for (const slot of catalog.slots) {
+    const opt = q.get(slot.id);
+    if (opt) await compositor.setSlotMaterial(slot.id, opt);
+  }
+  compositor.setSize(canvas.clientWidth, canvas.clientHeight);
+  return catalog;
+})();
+
+Object.assign(window, { __compose: { compositor, ready } });

@@ -228,7 +228,8 @@ def probe_points(scene: dict[str, np.ndarray]) -> list[dict]:
     testes de orientação (flipY) no navegador."""
     h, w = scene["mask"].shape
     pts = []
-    for fx, fy in [(0.5, 0.95), (0.2, 0.8), (0.8, 0.6), (0.5, 0.45), (0.1, 0.35), (0.5, 0.05)]:
+    grid = [(fx / 20, fy / 20) for fy in range(1, 20) for fx in range(1, 20)]
+    for fx, fy in grid:
         px, py = int(fx * w), int(fy * h)
         uvp = scene["uv"][py, px]
         pts.append({"x": px, "y": py, "mask": int(scene["mask"][py, px]), "u": float(uvp[0]), "v": float(uvp[1])})
