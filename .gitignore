@@ -3,3 +3,7 @@ __pycache__/
 .pytest_cache/
 renders/
 *.max.bak
+# assets gerados (python tools/make_test_assets.py)
+web/public/assets/scenes/
+web/public/assets/materials/
+web/public/assets/catalog/test_room.json
