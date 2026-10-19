@@ -73,7 +73,8 @@ def test_import_corona_display_referred_reconstroi_curva(tmp_path):
     rgb = lambda a: np.repeat(a[..., None], 3, -1).astype(np.float32)
     exr_io.write_exr(d / "c_beauty.exr", rgb(beauty), half=False)
     exr_io.write_exr(d / "c_diff_color.exr", rgb(albedo), half=False)
-    exr_io.write_exr(d / "c_diff_light.exr", rgb(np.clip(light, 0, 1)))
+    # como no Corona, o diff_light também sai com a curva aplicada
+    exr_io.write_exr(d / "c_diff_light.exr", rgb(true(light)), half=False)
     uv = np.zeros((h, w, 3), np.float32)
     uv[..., 0], uv[..., 1] = np.meshgrid(np.linspace(0, 4, w), np.linspace(0, 3, h))
     exr_io.write_exr(d / "c_uv.exr", uv, half=False)
