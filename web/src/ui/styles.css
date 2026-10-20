@@ -1651,7 +1651,25 @@ button:disabled {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  object-fit: cover;
+  background-size: cover;
+  background-position: center;
+}
+
+/* a opção já aplicada: anel fino e um ponto */
+.qp-item.is-current {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink), 0 10px 28px -6px rgba(20, 18, 14, 0.4);
+}
+
+.qp-item.is-current::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px #fff;
 }
 
 .qp-label {

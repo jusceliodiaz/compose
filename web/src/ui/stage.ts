@@ -295,6 +295,7 @@ export class Stage {
     });
     this.frame.addEventListener('click', (e) => {
       if (this.comparing) return;
+      hide(); // o rótulo do hover sai de cena quando o leque abre
       const [u, v] = uvOf(e);
       const s = this.el.getBoundingClientRect();
       this.actions.onPick(u, v, (e as PointerEvent).pointerType === 'touch', e.clientX - s.left, e.clientY - s.top);

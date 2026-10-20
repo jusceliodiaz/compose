@@ -4,26 +4,30 @@ import type { MaterialOption, Slot } from '../catalog/schema';
 import { h, money } from './dom';
 
 export interface QuickPickEvents {
-  onPreview(option: MaterialOption | null): void;
-  onSelect(option: MaterialOption): void;
+  onPreview(choice: QuickChoice | null): void;
+  onSelect(choice: QuickChoice): void;
   onMore(): void;
   onClose(): void;
 }
 
 const COUNT = 3;
+
+export interface QuickChoice {
+  option: MaterialOption;
+  variantId: string | null;
+}
 const RADIUS = 92;
 
 const srgb = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
 const linToCss = (c: readonly number[]) =>
   `rgb(${c.map((x) => Math.round(Math.min(1, Math.max(0, srgb(x))) * 255)).join(' ')})`;
 
-/** As próximas opções depois da atual (ciclando), sem a de teste. */
-export function nextOptions(slot: Slot, currentId: string, n = COUNT): MaterialOption[] {
-  const list = slot.options.filter((o) => !o.isTest);
-  const i = Math.max(0, list.findIndex((o) => o.id === currentId));
-  const out: MaterialOption[] = [];
-  for (let k = 1; k < list.length && out.length < n; k++) out.push(list[(i + k) % list.length]!);
-  return out;
+/** As 3 opções do leque: as escolhidas no catálogo (quick_options). */
+export function quickChoices(slot: Slot): QuickChoice[] {
+  return slot.quickOptions
+    .map((q) => ({ option: slot.options.find((o) => o.id === q.optionId)!, variantId: q.variantId }))
+    .filter((c) => c.option)
+    .slice(0, COUNT);
 }
 
 export class QuickPick {
@@ -55,41 +59,49 @@ export class QuickPick {
   }
 
   /** (x, y) em px relativos ao contêiner do leque. */
-  open(x: number, y: number, slot: Slot, currentId: string, bounds: { w: number; h: number }): void {
+  open(x: number, y: number, slot: Slot, current: { option: string; variant: string | null }, bounds: { w: number; h: number }): void {
     window.clearTimeout(this.closeTimer);
     this.slot = slot;
-    const opts = nextOptions(slot, currentId);
+    const opts = quickChoices(slot);
     // abre para cima; perto do topo, para baixo. Mantém o leque dentro da tela.
     const up = y > RADIUS + 70;
     const cx = Math.min(bounds.w - RADIUS - 48, Math.max(RADIUS + 48, x));
     const angles = up ? [-150, -90, -30] : [150, 90, 30];
 
-    const items = opts.map((o, i) => {
+    const items = opts.map((c, i) => {
+      const o = c.option;
       const a = (angles[i]! * Math.PI) / 180;
+      const variant = o.tintVariants.find((v) => v.id === c.variantId) ?? null;
+      // textura com a cor da variação (a miniatura é neutra/clara; multiply aplica o tom)
       const swatch = o.thumbnail
-        ? h('img', { class: 'qp-img', src: o.thumbnail, alt: '', decoding: 'async' })
+        ? h('span', {
+            class: 'qp-img',
+            style: `background-image:url(${o.thumbnail});${variant ? `background-color:${linToCss(variant.tint.map((t) => t * 0.5))};background-blend-mode:multiply;` : ''}`,
+          })
         : h('span', { class: 'qp-img', style: `background:${linToCss(o.albedoColor)}` });
-      const b = h(
+      const isCurrent = o.id === current.option && (c.variantId === null || c.variantId === current.variant);
+      const name = variant ? `${o.name} ${variant.name.toLowerCase()}` : o.name;
+      return h(
         'button',
         {
-          class: 'qp-item',
+          class: `qp-item${isCurrent ? ' is-current' : ''}`,
           type: 'button',
-          'aria-label': o.price ? `${o.name}, ${money(o.price.value, o.price.currency)} por m²` : o.name,
+          'aria-label': o.price ? `${name}, ${money(o.price.value, o.price.currency)} por m²` : name,
+          'aria-current': isCurrent ? 'true' : null,
           style: `--dx:${Math.cos(a) * RADIUS}px; --dy:${Math.sin(a) * RADIUS}px; --i:${i}`,
-          onpointerenter: () => this.events.onPreview(o),
+          onpointerenter: () => this.events.onPreview(c),
           onpointerleave: () => this.events.onPreview(null),
-          onfocus: () => this.events.onPreview(o),
+          onfocus: () => this.events.onPreview(c),
           onblur: () => this.events.onPreview(null),
           onclick: () => {
-            this.events.onSelect(o);
+            this.events.onSelect(c);
             this.close(true);
           },
         },
         swatch,
-        h('span', { class: `qp-label ${up ? '' : 'qp-label--below'}` }, h('strong', {}, o.name),
+        h('span', { class: `qp-label ${up ? '' : 'qp-label--below'}` }, h('strong', {}, name),
           o.price ? h('span', {}, money(o.price.value, o.price.currency)) : null),
       );
-      return b;
     });
 
     const more = h(

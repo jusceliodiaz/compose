@@ -1,5 +1,5 @@
 {
-  "_doc": "Biblioteca de materiais do configurador. 'polyhaven'/'ambientcg' = id no acervo (CC0); tools/fetch_textures.py baixa e converte. 'size_m' = medida física da textura [U, V] em metros. 'tintable' = a textura é neutralizada (cinza) e as 'colors' viram variações. 'color' = material sólido (tinta/laca). Preços em BRL por m² (referência).",
+  "_doc": "Biblioteca de materiais do configurador. 'polyhaven'/'ambientcg' = id no acervo (CC0); tools/fetch_textures.py baixa e converte. 'size_m' = medida física da textura [U, V] em metros. 'tintable' = a textura é neutralizada (cinza) e as 'colors' viram variações. 'color' = material sólido (tinta/laca). Preços em BRL por m² (referência). 'featured' = as 3 opções do leque rápido (clique na imagem) por tipo, [id, variação].",
   "kinds": {
     "floor": [
       "carvalho_claro",
@@ -546,5 +546,91 @@
       "price": 560.0,
       "gloss_keep": 0.4
     }
+  },
+  "featured": {
+    "floor": [
+      [
+        "carvalho_natural",
+        null
+      ],
+      [
+        "espinha_de_peixe",
+        null
+      ],
+      [
+        "marmore_branco",
+        null
+      ]
+    ],
+    "rug": [
+      [
+        "juta",
+        null
+      ],
+      [
+        "tapete_xadrez",
+        "cinza"
+      ],
+      [
+        "tapete_boucle",
+        "caramelo"
+      ]
+    ],
+    "fabric": [
+      [
+        "veludo",
+        "terracota"
+      ],
+      [
+        "boucle",
+        "off_white"
+      ],
+      [
+        "couro_conhaque",
+        null
+      ]
+    ],
+    "paint": [
+      [
+        "tijolinho_branco",
+        null
+      ],
+      [
+        "painel_carvalho",
+        null
+      ],
+      [
+        "reboco_cinza",
+        null
+      ]
+    ],
+    "cabinet": [
+      [
+        "nogueira",
+        null
+      ],
+      [
+        "maple",
+        null
+      ],
+      [
+        "madeira_preta",
+        null
+      ]
+    ],
+    "stone": [
+      [
+        "marmore_branco",
+        null
+      ],
+      [
+        "nero_marquina",
+        null
+      ],
+      [
+        "travertino",
+        null
+      ]
+    ]
   }
 }

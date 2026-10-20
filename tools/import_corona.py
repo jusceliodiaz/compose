@@ -115,6 +115,24 @@ LIBRARY = ROOT / "tools" / "material_library.json"
 NEUTRAL_MEAN = 0.5  # fetch_textures.py normaliza as texturas "tintable" para esta luminância média
 
 
+def quick_options(kind: str, options: list[dict]) -> list[dict]:
+    """As 3 opções do leque rápido (clique na imagem): 'featured' da biblioteca, só as que existem nas opções."""
+    if not LIBRARY.is_file():
+        return []
+    featured = json.loads(LIBRARY.read_text(encoding="utf-8")).get("featured", {}).get(kind, [])
+    have = {o["id"]: o for o in options}
+    out = []
+    for mid, variant in featured:
+        o = have.get(mid)
+        if not o:
+            continue
+        q = {"option": mid}
+        if variant and any(v["id"] == variant for v in o.get("tint_variants", [])):
+            q["variant"] = variant
+        out.append(q)
+    return out
+
+
 def library(kind: str, public: Path | None = None) -> list[dict]:
     """Opções de material para um tipo de superfície: biblioteca baixada (tools/fetch_textures.py) se existir;
     senão, os materiais procedurais do gerador de teste."""
@@ -557,8 +575,10 @@ def run(args: argparse.Namespace) -> int:
             "default_texture": "original",
             "allow_user_transform": {"scale": [0.5, 2.0], "rotation": s.kind != "paint", "offset": s.kind != "paint"},
             "gloss_keep": GLOSS_KEEP[s.kind],
+            "material_kind": s.kind,
             "area_m2": areas[s.id],
-            "options": [original, *library(s.kind, public)],
+            "options": (opts := [original, *library(s.kind, public)]),
+            "quick_options": quick_options(s.kind, opts),
         })
 
     catalog = {

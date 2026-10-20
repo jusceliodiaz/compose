@@ -97,7 +97,8 @@ export async function startApp(root: HTMLElement): Promise<void> {
         panel.selectSlot(slot.id, false);
         compositor.setHover(slot.id);
         const r = stage.el.getBoundingClientRect();
-        quick.open(x, y, slot, store.get().slots[slot.id]!.option, { w: r.width, h: r.height });
+        const cur = store.get().slots[slot.id]!;
+        quick.open(x, y, slot, { option: cur.option, variant: cur.variant }, { w: r.width, h: r.height });
       },
       onChecker: () => toggleChecker(),
       onCopyLink: () => void copyLink(),
@@ -116,16 +117,16 @@ export async function startApp(root: HTMLElement): Promise<void> {
 
   // leque de 3 opções ao clicar numa superfície (prévia ao vivo no hover)
   const quick = new QuickPick({
-    onPreview: (o) => {
+    onPreview: (c) => {
       const id = quick.slotId;
       if (!id) return;
       const cfg = store.get().slots[id]!;
-      if (o) void compositor.setSlotMaterial(id, o.id, o.tintVariants[0]?.id ?? null);
+      if (c) void compositor.setSlotMaterial(id, c.option.id, c.variantId ?? c.option.tintVariants[0]?.id ?? null);
       else void compositor.setSlotMaterial(id, cfg.option, cfg.variant);
     },
-    onSelect: (o) => {
+    onSelect: (c) => {
       const id = quick.slotId;
-      if (id) store.setSlot(id, { option: o.id, variant: o.tintVariants[0]?.id ?? null });
+      if (id) store.setSlot(id, { option: c.option.id, variant: c.variantId ?? c.option.tintVariants[0]?.id ?? null });
     },
     onMore: () => {
       if (quick.slotId) panel.selectSlot(quick.slotId);

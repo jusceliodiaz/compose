@@ -47,6 +47,8 @@ export interface RawSlot {
   gloss_keep?: number;
   area_m2?: number;
   options: RawOption[];
+  /** As 3 opções do leque rápido (clique na imagem). */
+  quick_options?: { option: string; variant?: string }[];
 }
 
 export interface RawLightGroup {
@@ -118,6 +120,12 @@ export interface Slot {
   allowOffset: boolean;
   areaM2: number | null;
   options: MaterialOption[];
+  quickOptions: QuickOption[];
+}
+
+export interface QuickOption {
+  optionId: string;
+  variantId: string | null;
 }
 
 export interface LightGroup {
@@ -272,6 +280,20 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
       p.push(`slot ${s.id}: default_texture '${s.default_texture}' não existe nas opções`);
     }
     const aut = s.allow_user_transform;
+    // leque rápido: as do catálogo que existirem; senão, as 3 primeiras opções COM textura
+    let quick: QuickOption[] = (s.quick_options ?? [])
+      .filter((q) => options.some((o) => o.id === q.option))
+      .map((q) => {
+        const o = options.find((x) => x.id === q.option)!;
+        const v = q.variant && o.tintVariants.some((t) => t.id === q.variant) ? q.variant : null;
+        return { optionId: q.option, variantId: v };
+      });
+    if (!quick.length) {
+      quick = options
+        .filter((o) => o.diffuseMap && !o.isTest && !o.keepOriginal)
+        .slice(0, 3)
+        .map((o) => ({ optionId: o.id, variantId: null }));
+    }
     slots.push({
       id: s.id,
       name: s.name,
@@ -283,6 +305,7 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
       allowOffset: aut?.offset ?? true,
       areaM2: isNum(s.area_m2) ? s.area_m2 : null,
       options,
+      quickOptions: quick.slice(0, 3),
     });
   }
   if (slots.length > MAX_SLOTS) p.push(`no máximo ${MAX_SLOTS} slots por câmera (vieram ${slots.length})`);

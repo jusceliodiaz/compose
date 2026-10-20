@@ -85,3 +85,18 @@ describe('normalizeCatalog', () => {
     }
   });
 });
+
+describe('leque rápido (quick_options)', () => {
+  it('usa as do catálogo, com variação válida', () => {
+    const raw = base();
+    raw.configurable_slots[0]!.options[0]!.tint_variants = [{ id: 'mel', name: 'Mel', tint: [1, 0.9, 0.7] }];
+    raw.configurable_slots[0]!.quick_options = [{ option: 'b' }, { option: 'a', variant: 'mel' }, { option: 'zz' }];
+    const q = normalizeCatalog(raw).slots[0]!.quickOptions;
+    expect(q).toEqual([{ optionId: 'b', variantId: null }, { optionId: 'a', variantId: 'mel' }]);
+  });
+
+  it('sem quick_options: as 3 primeiras COM textura (sem cor sólida)', () => {
+    const q = normalizeCatalog(base()).slots[0]!.quickOptions;
+    expect(q.map((x) => x.optionId)).toEqual(['a', 'b']); // 'c' é cor sólida
+  });
+});
