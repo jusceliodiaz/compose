@@ -118,7 +118,7 @@ def edge_agreement(a: np.ndarray, b: np.ndarray) -> float:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("catalog", type=Path)
-    ap.add_argument("image", type=Path, help="PNG/JPG/WebP 8-bit (sRGB)")
+    ap.add_argument("image", type=Path, help="PNG/JPG/WebP 8-bit (sRGB) ou EXR (linear, como o beauty do Corona)")
     ap.add_argument("--web-root", type=Path, default=ROOT / "web" / "public")
     ap.add_argument("--manter-luzes", dest="keep_lights", action="store_true")
     ap.add_argument("--forcar", dest="force", action="store_true", help="aceita registro ruim")
@@ -127,12 +127,29 @@ def main(argv: list[str] | None = None) -> int:
     cat = json.loads(args.catalog.read_text(encoding="utf-8"))
     bp = cat["base_passes"]
     cam = args.web_root / Path(bp["beauty"]).parent
-    ref = exr_io.read_png(args.web_root / bp["beauty"])[..., :3]           # beauty atual (exibição)
-    img = cv2.imread(str(args.image), cv2.IMREAD_COLOR)
-    if img is None:
-        print(f"ERRO: não consegui ler {args.image}", file=sys.stderr)
-        return 1
-    img = img[..., ::-1].copy()
+    # referência = o render ORIGINAL (é ele que bate com máscaras/UV). Depois da 1ª troca ele fica em
+    # _beauty_anterior/; sem isso, uma 2ª troca se alinharia à imagem retocada anterior.
+    original = args.web_root / Path(bp["beauty"]).parent / "_beauty_anterior" / "beauty.webp"
+    ref_path = original if original.is_file() else args.web_root / bp["beauty"]
+    ref = exr_io.read_png(ref_path)[..., :3]
+    img_lin = None  # EXR: valores lineares de exibição (mesmo espaço do beauty do Corona com tone mapping)
+    if args.image.suffix.lower() == ".exr":
+        try:
+            img_lin = exr_io.read_exr(args.image)[..., :3]
+        except OSError:  # EXR tiled/multicanal (ex.: salvo pelo Magnific/Photoshop) → pacote OpenEXR
+            import OpenEXR
+            part = OpenEXR.File(str(args.image)).parts[0]
+            ch = part.channels
+            arr = ch["RGBA"].pixels if "RGBA" in ch else ch["RGB"].pixels
+            img_lin = arr[..., :3].astype(np.float32)
+        img_lin = np.clip(img_lin, 0.0, None)
+        img = exr_io.to_u8(exr_io.linear_to_srgb(np.clip(img_lin, 0, 1)))
+    else:
+        img = cv2.imread(str(args.image), cv2.IMREAD_COLOR)
+        if img is None:
+            print(f"ERRO: não consegui ler {args.image}", file=sys.stderr)
+            return 1
+        img = img[..., ::-1].copy()
     h, w = ref.shape[:2]
     print(f"── nova base: {args.image.name} {img.shape[1]}×{img.shape[0]} → {w}×{h}")
 
@@ -151,12 +168,26 @@ def main(argv: list[str] | None = None) -> int:
         if cc < 0.5 and not args.force:
             print("ERRO: o alinhamento ficou ruim. Use --forcar para aplicar mesmo assim.", file=sys.stderr)
             return 1
-    warp = cv2.warpPerspective(img, H, (w, h), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_REPLICATE)
+    # já alinhada? (cantos movem < 1 px) → usa a imagem como está, sem reamostrar
+    corners = np.float32([[0, 0], [img.shape[1], 0], [0, img.shape[0]], [img.shape[1], img.shape[0]]]).reshape(-1, 1, 2)
+    target = np.float32([[0, 0], [w, 0], [0, h], [w, h]]).reshape(-1, 1, 2)
+    moved = float(np.abs(cv2.perspectiveTransform(corners, H) - target).max())
+    if img.shape[:2] == (h, w) and moved < 1.0:
+        print(f"   imagem já alinhada ao render (deslocamento {moved:.2f} px) — usada sem reamostrar")
+        H = np.eye(3)
+        warp = img
+    else:
+        warp = cv2.warpPerspective(img, H, (w, h), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_REPLICATE)
     print(f"   bordas que coincidem com o render: antes {edge_agreement(cv2.resize(img, (w, h)), ref) * 100:.0f}% "
           f"→ depois {edge_agreement(warp, ref) * 100:.0f}%")
 
     # espaço de luz do motor: exibição → T⁻¹
-    disp = exr_io.srgb_to_linear(warp.astype(np.float32) / 255.0)
+    if img_lin is not None:
+        disp = img_lin if np.allclose(H, np.eye(3)) else cv2.warpPerspective(
+            img_lin, H, (w, h), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_REPLICATE)
+        disp = np.clip(disp, 0.0, None)
+    else:
+        disp = exr_io.srgb_to_linear(warp.astype(np.float32) / 255.0)
     tm = cat.get("tone_mapping", {})
     lin = lut_inverse(disp, tm["lut"]) if tm.get("operator") == "lut" else disp / max(tm.get("exposure", 1.0), 1e-6)
 
