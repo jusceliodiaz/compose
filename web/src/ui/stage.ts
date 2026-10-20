@@ -10,6 +10,10 @@ export interface StageActions {
   onDebug(mode: DebugMode): void;
   onProject(id: string): void;
   onTogglePanel(): void;
+  /** Cursor sobre a imagem: devolve o nome da superfície sob (u, v) ou null. (-1, -1) = saiu. */
+  onHover(u: number, v: number): string | null;
+  /** Clique/toque na imagem. */
+  onPick(u: number, v: number, touch: boolean): void;
 }
 
 export interface StageTitle {
@@ -43,6 +47,7 @@ export class Stage {
   private readonly debugBar: HTMLElement;
   private readonly memLabel: HTMLElement;
   private readonly toastEl: HTMLElement;
+  private readonly tip: HTMLElement;
   private readonly btnCompare: HTMLButtonElement;
   private readonly btnChecker: HTMLButtonElement;
   private readonly btnPanel: HTMLButtonElement;
@@ -116,6 +121,7 @@ export class Stage {
     );
 
     this.toastEl = h('div', { class: 'toast', role: 'status', 'aria-live': 'polite' });
+    this.tip = h('div', { class: 'pick-tip', 'aria-hidden': 'true' });
 
     const projectEl =
       title.projects.length > 1
@@ -153,9 +159,11 @@ export class Stage {
       h('div', { class: 'loader glass', role: 'status', 'aria-live': 'polite' }, this.progressLabel, this.progress),
       this.debugBar,
       this.toastEl,
+      this.tip,
     );
 
     this.bindCompare();
+    this.bindPick();
     new ResizeObserver(() => this.layout()).observe(this.well);
     window.matchMedia(MOBILE).addEventListener('change', () => this.layout());
   }
@@ -256,6 +264,39 @@ export class Stage {
       else return;
       e.preventDefault();
       this.applySplit();
+    });
+  }
+
+  // --- Clique nas superfícies -----------------------------------------------------
+
+  private bindPick(): void {
+    const uvOf = (e: PointerEvent | MouseEvent) => {
+      const r = this.frame.getBoundingClientRect();
+      return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height] as const;
+    };
+    const hide = () => {
+      this.tip.classList.remove('is-visible');
+      this.frame.classList.remove('is-pickable');
+    };
+    this.frame.addEventListener('pointermove', (e) => {
+      if (this.comparing || e.pointerType !== 'mouse') return;
+      const [u, v] = uvOf(e);
+      const label = this.actions.onHover(u, v);
+      if (!label) return hide();
+      const s = this.el.getBoundingClientRect();
+      this.tip.replaceChildren(h('strong', {}, label), h('span', {}, 'clique para trocar'));
+      this.tip.style.transform = `translate(${e.clientX - s.left + 14}px, ${e.clientY - s.top + 16}px)`;
+      this.tip.classList.add('is-visible');
+      this.frame.classList.add('is-pickable');
+    });
+    this.frame.addEventListener('pointerleave', () => {
+      this.actions.onHover(-1, -1);
+      hide();
+    });
+    this.frame.addEventListener('click', (e) => {
+      if (this.comparing) return;
+      const [u, v] = uvOf(e);
+      this.actions.onPick(u, v, (e as PointerEvent).pointerType === 'touch');
     });
   }
 

@@ -7,6 +7,8 @@ import { h, icon, ICONS, money, num } from './dom';
 import { slider, type Slider } from './slider';
 
 export interface PanelEvents {
+  /** Cursor sobre uma aba de superfície (destaca na imagem); null = saiu. */
+  onSurfaceHover?(slotId: string | null): void;
   /** Pré-carrega o albedo ao passar o mouse/focar a miniatura. */
   preload(slotId: string, option: MaterialOption): void;
   onExport(): void;
@@ -81,6 +83,16 @@ export class Panel {
     return this.activeSlot;
   }
 
+  /** Abre o painel numa superfície (ex.: clique no móvel na imagem). */
+  selectSlot(slotId: string): void {
+    if (!this.catalog.slots.some((s) => s.id === slotId)) return;
+    this.el.classList.remove('is-collapsed');
+    if (slotId === this.activeSlot) return;
+    this.activeSlot = slotId;
+    this.build();
+    this.body.scrollTop = 0;
+  }
+
   setBusy(busy: boolean, label = 'Gerando PNG…'): void {
     this.exportBtn.disabled = busy;
     this.exportBtn.classList.toggle('is-busy', busy);
@@ -134,6 +146,8 @@ export class Panel {
               this.activeSlot = s.id;
               this.build();
             },
+            onpointerenter: () => this.events.onSurfaceHover?.(s.id),
+            onpointerleave: () => this.events.onSurfaceHover?.(null),
           },
           h('span', { class: 'surface-name' }, s.name),
           s.areaM2 !== null ? h('span', { class: 'surface-meta' }, `${num(s.areaM2, 1)} m²`) : null,

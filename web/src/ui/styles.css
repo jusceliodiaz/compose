@@ -1519,3 +1519,48 @@ button:disabled {
     padding: 0 16px;
   }
 }
+
+/* ------------------------------------------------------- seleção clicando na imagem */
+
+.frame.is-pickable {
+  cursor: pointer;
+}
+
+.pick-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease);
+}
+
+.pick-tip.is-visible {
+  opacity: 1;
+}
+
+.pick-tip strong {
+  font-weight: 600;
+}
+
+.pick-tip span {
+  color: var(--ink-3);
+}
+
+@media (pointer: coarse) {
+  .pick-tip {
+    display: none;
+  }
+}

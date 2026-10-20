@@ -83,3 +83,40 @@ test('export: PNG na resolução esperada e idêntico ao render', async ({ page 
   });
   expect(diff).toBe(0);
 });
+
+test('clicar na superfície da imagem seleciona no painel; o destaque não vai para o export', async ({ page }) => {
+  await openApp(page);
+  await page.waitForFunction(() => (window as any).__compose.compositor.renders > 0);
+  const box = (await page.locator('.frame').boundingBox())!;
+  // piso da sala de teste: parte de baixo da imagem
+  const x = box.x + box.width * 0.5;
+  const y = box.y + box.height * 0.85;
+  await expect.poll(async () => {
+    await page.mouse.move(x - 5, y);
+    await page.mouse.move(x, y);
+    return (await page.locator('.pick-tip').textContent()) ?? '';
+  }).toContain('Piso');
+  await expect(page.locator('.pick-tip')).toHaveClass(/is-visible/);
+  const hovered = await page.evaluate(() => (window as any).__compose.compositor.material.uniforms.u_hoverAmount.value);
+  expect(hovered).toBe(1);
+
+  // o destaque é só de tela
+  const same = await page.evaluate(() => {
+    const c = (window as any).__compose.compositor;
+    const [w, h] = c.passSize;
+    const a: Uint8Array = c.renderToPixels(w, h);
+    c.setHover(null);
+    const b: Uint8Array = c.renderToPixels(w, h);
+    let n = 0;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++;
+    return n;
+  });
+  expect(same).toBe(0);
+
+  await page.mouse.click(x, y);
+  await expect(page.getByRole('tab', { name: /Piso/ })).toHaveAttribute('aria-selected', 'true');
+
+  // parede (fora do slot): sem rótulo
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.08);
+  await expect(page.locator('.pick-tip')).not.toHaveClass(/is-visible/);
+});

@@ -7,6 +7,7 @@ import { type ConfigState, Store } from '../state/store';
 import { deserializeState, serializeState } from '../state/urlState';
 import { h, icon, ICONS } from './dom';
 import { Panel } from './panel';
+import { Picker } from './picker';
 import { Stage } from './stage';
 
 const BASE = import.meta.env.BASE_URL;
@@ -80,6 +81,22 @@ export async function startApp(root: HTMLElement): Promise<void> {
       },
       onSplit: (x) => compositor?.setSplit(x),
       onTogglePanel: () => togglePanel(),
+      onHover: (u, v) => {
+        const slot = picker?.slotAt(u, v) ?? null;
+        compositor?.setHover(slot?.id ?? null);
+        return slot?.name ?? null;
+      },
+      onPick: (u, v, touch) => {
+        const slot = picker?.slotAt(u, v);
+        if (!slot) return;
+        panel.selectSlot(slot.id);
+        togglePanel(true);
+        if (touch) {
+          // no toque não há hover: pisca o contorno para confirmar a seleção
+          compositor.setHover(slot.id);
+          window.setTimeout(() => compositor.setHover(null), 700);
+        }
+      },
       onChecker: () => toggleChecker(),
       onCopyLink: () => void copyLink(),
       onDebug: (m) => {
@@ -91,7 +108,9 @@ export async function startApp(root: HTMLElement): Promise<void> {
   const panel = new Panel(catalog, store, {
     preload: (_slot, o) => compositor?.preload(o),
     onExport: () => void doExport(),
+    onSurfaceHover: (id) => compositor?.setHover(id),
   });
+  let picker: Picker | null = null;
   root.replaceChildren(stage.el, panel.el);
   stage.setPoster(cam.passes.beautyDisplay, cam.viewResolution[0], cam.viewResolution[1]);
 
@@ -225,6 +244,8 @@ export async function startApp(root: HTMLElement): Promise<void> {
     await compositor.setCamera(catalog, store.get().cam, (n, total) => stage.setProgress(n, total));
     await apply(store.get(), null);
     compositor.render();
+    const pk = new Picker(catalog);
+    pk.load().then(() => (picker = pk), (e) => console.warn('[compose] seleção por clique indisponível:', e));
     stage.setReady();
     store.subscribe((s, prev) => {
       void apply(s, prev);

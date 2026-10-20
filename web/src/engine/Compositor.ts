@@ -124,6 +124,7 @@ export class Compositor {
         u_lg0: u(this.black), u_lg1: u(this.black), u_lg2: u(this.black), u_lg3: u(this.black),
         u_lightTint: u(Array.from({ length: MAX_LG }, () => new THREE.Vector3(1, 1, 1))),
         u_exposure: u(1), u_toneOp: u(0), u_splitX: u(0), u_debug: u(0),
+        u_hoverSlot: u(-1), u_hoverAmount: u(0), u_hoverSelect: u(new THREE.Vector3()), u_hoverFile: u(0),
       },
     });
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
@@ -324,6 +325,22 @@ export class Compositor {
     this.requestRender();
   }
 
+  /** Destaca a superfície sob o cursor (véu + contorno). null remove. Não aparece em renderToPixels/export. */
+  setHover(slotId: string | null, amount = 1): void {
+    const idx = slotId && this.catalog ? this.catalog.slots.findIndex((s) => s.id === slotId) : -1;
+    const U = this.material.uniforms;
+    if (U.u_hoverSlot!.value === idx && U.u_hoverAmount!.value === amount) return;
+    U.u_hoverSlot!.value = idx;
+    U.u_hoverAmount!.value = idx >= 0 ? amount : 0;
+    const slot = idx >= 0 ? this.catalog!.slots[idx]! : null;
+    if (slot) {
+      const ch = { r: 0, g: 1, b: 2 }[slot.channel];
+      (U.u_hoverSelect!.value as THREE.Vector3).set(ch === 0 ? 1 : 0, ch === 1 ? 1 : 0, ch === 2 ? 1 : 0);
+      U.u_hoverFile!.value = Math.max(0, this.cam!.passes.maskFiles.indexOf(slot.maskFile));
+    }
+    this.requestRender();
+  }
+
   setDebug(mode: DebugMode): void {
     this.material.uniforms.u_debug!.value = mode;
     this.requestRender();
@@ -383,6 +400,9 @@ export class Compositor {
       generateMipmaps: false,
     });
     const prev = this.passes;
+    const U = this.material.uniforms;
+    const hover = U.u_hoverAmount!.value as number;
+    U.u_hoverAmount!.value = 0; // o destaque é só da tela, nunca da imagem exportada
     try {
       if (passes && this.cam) this.bindPasses(passes, this.cam);
       this.renderer.setRenderTarget(rt);
@@ -397,6 +417,7 @@ export class Compositor {
     } finally {
       this.renderer.setRenderTarget(null);
       if (passes && prev && this.cam) this.bindPasses(prev, this.cam);
+      U.u_hoverAmount!.value = hover;
       rt.dispose();
     }
   }
