@@ -149,4 +149,8 @@ def test_import_corona_reempacota_mascaras_de_varios_arquivos(corona_dir, tmp_pa
     refs = {s["id"]: s["mask_ref"] for s in cat["configurable_slots"]}
     assert refs == {"esq": {"file": 0, "channel": "r"}, "dir": {"file": 0, "channel": "g"}}
     png = exr_io.read_png(pub / "assets/scenes/m/cam1/masks_0.png")
-    assert (png[..., 0] > 127).sum() == (left > 0.5).sum() and (png[..., 1] > 127).sum() == (right > 0.5).sum()
+    # cada slot contém a sua máscara original; o preenchimento de frestas só acrescenta poucos pixels
+    for ch, orig in [(0, left), (1, right)]:
+        got = png[..., ch] > 127
+        assert got[orig > 0.5].all()
+        assert got.sum() - (orig > 0.5).sum() <= 0.001 * got.size

@@ -1,3 +1,7 @@
+import os
+
+os.environ.setdefault("OPENCV_IO_ENABLE_OPENEXR", "1")  # antes de qualquer import do cv2
+
 import sys
 from pathlib import Path
 

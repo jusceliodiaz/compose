@@ -11,6 +11,7 @@ o UV e as máscaras (já duros) ficam como estão.
 
 from __future__ import annotations
 
+import exr_io  # noqa: F401 — liga o OpenEXR do OpenCV antes do primeiro import do cv2
 import cv2
 import numpy as np
 

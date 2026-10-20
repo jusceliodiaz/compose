@@ -23,10 +23,9 @@ import time
 import urllib.request
 from pathlib import Path
 
+import exr_io  # antes do cv2: liga o OpenEXR
 import cv2
 import numpy as np
-
-import exr_io
 
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "tools" / "material_library.json"
