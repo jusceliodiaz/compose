@@ -120,3 +120,40 @@ test('clicar na superfície da imagem seleciona no painel; o destaque não vai p
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.08);
   await expect(page.locator('.pick-tip')).not.toHaveClass(/is-visible/);
 });
+
+test('leque de 3 opções: prévia no hover, aplica no clique, Esc desfaz a prévia', async ({ page }) => {
+  await openApp(page);
+  await page.waitForFunction(() => (window as any).__compose.compositor.renders > 0);
+  const box = (await page.locator('.frame').boundingBox())!;
+  const x = box.x + box.width * 0.5;
+  const y = box.y + box.height * 0.85;
+  const state = () => page.evaluate(() => {
+    const c = (window as any).__compose;
+    return { saved: c.store.get().slots.floor.option, shown: c.compositor.getSlotState('floor').option.id };
+  });
+
+  // espera o picker carregar as máscaras e abre o leque
+  await expect.poll(async () => {
+    await page.mouse.click(x, y);
+    return page.locator('.qp.is-open .qp-item').count();
+  }).toBe(3);
+  const names = await page.locator('.qp-item').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+  expect(names[0]).toMatch(/Mármore/); // próximas depois do carvalho (padrão)
+
+  // prévia: muda o que aparece, não o que está salvo
+  await page.locator('.qp-item').first().hover();
+  await expect.poll(state).toEqual({ saved: 'oak', shown: 'marble' });
+
+  // Esc fecha e desfaz a prévia
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.qp')).toBeHidden();
+  await expect.poll(state).toEqual({ saved: 'oak', shown: 'oak' });
+
+  // abre de novo e aplica a segunda opção
+  await page.mouse.click(x, y);
+  await expect(page.locator('.qp.is-open .qp-item')).toHaveCount(3);
+  await page.locator('.qp-item').nth(1).click();
+  await expect.poll(state).toEqual({ saved: 'concrete', shown: 'concrete' });
+  await expect.poll(() => page.url()).toContain('floor=concrete');
+  await expect(page.locator('.qp')).toBeHidden();
+});

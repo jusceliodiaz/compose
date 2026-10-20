@@ -8,6 +8,7 @@ import { deserializeState, serializeState } from '../state/urlState';
 import { h, icon, ICONS } from './dom';
 import { Panel } from './panel';
 import { Picker } from './picker';
+import { QuickPick } from './quickpick';
 import { Stage } from './stage';
 
 const BASE = import.meta.env.BASE_URL;
@@ -82,20 +83,21 @@ export async function startApp(root: HTMLElement): Promise<void> {
       onSplit: (x) => compositor?.setSplit(x),
       onTogglePanel: () => togglePanel(),
       onHover: (u, v) => {
+        if (quick.isOpen) return null; // o leque está aberto: o destaque fica na superfície dele
         const slot = picker?.slotAt(u, v) ?? null;
         compositor?.setHover(slot?.id ?? null);
         return slot?.name ?? null;
       },
-      onPick: (u, v, touch) => {
+      onPick: (u, v, _touch, x, y) => {
         const slot = picker?.slotAt(u, v);
-        if (!slot) return;
-        panel.selectSlot(slot.id);
-        togglePanel(true);
-        if (touch) {
-          // no toque não há hover: pisca o contorno para confirmar a seleção
-          compositor.setHover(slot.id);
-          window.setTimeout(() => compositor.setHover(null), 700);
+        if (!slot) {
+          quick.close();
+          return;
         }
+        panel.selectSlot(slot.id, false);
+        compositor.setHover(slot.id);
+        const r = stage.el.getBoundingClientRect();
+        quick.open(x, y, slot, store.get().slots[slot.id]!.option, { w: r.width, h: r.height });
       },
       onChecker: () => toggleChecker(),
       onCopyLink: () => void copyLink(),
@@ -111,6 +113,27 @@ export async function startApp(root: HTMLElement): Promise<void> {
     onSurfaceHover: (id) => compositor?.setHover(id),
   });
   let picker: Picker | null = null;
+
+  // leque de 3 opções ao clicar numa superfície (prévia ao vivo no hover)
+  const quick = new QuickPick({
+    onPreview: (o) => {
+      const id = quick.slotId;
+      if (!id) return;
+      const cfg = store.get().slots[id]!;
+      if (o) void compositor.setSlotMaterial(id, o.id, o.tintVariants[0]?.id ?? null);
+      else void compositor.setSlotMaterial(id, cfg.option, cfg.variant);
+    },
+    onSelect: (o) => {
+      const id = quick.slotId;
+      if (id) store.setSlot(id, { option: o.id, variant: o.tintVariants[0]?.id ?? null });
+    },
+    onMore: () => {
+      if (quick.slotId) panel.selectSlot(quick.slotId);
+      togglePanel(true);
+    },
+    onClose: () => compositor?.setHover(null),
+  });
+  stage.el.append(quick.el);
   root.replaceChildren(stage.el, panel.el);
   stage.setPoster(cam.passes.beautyDisplay, cam.viewResolution[0], cam.viewResolution[1]);
 

@@ -83,10 +83,10 @@ export class Panel {
     return this.activeSlot;
   }
 
-  /** Abre o painel numa superfície (ex.: clique no móvel na imagem). */
-  selectSlot(slotId: string): void {
+  /** Mostra uma superfície no painel. reveal = também expande a gaveta (celular). */
+  selectSlot(slotId: string, reveal = true): void {
     if (!this.catalog.slots.some((s) => s.id === slotId)) return;
-    this.el.classList.remove('is-collapsed');
+    if (reveal) this.el.classList.remove('is-collapsed');
     if (slotId === this.activeSlot) return;
     this.activeSlot = slotId;
     this.build();

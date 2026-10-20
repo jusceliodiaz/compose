@@ -12,8 +12,8 @@ export interface StageActions {
   onTogglePanel(): void;
   /** Cursor sobre a imagem: devolve o nome da superfície sob (u, v) ou null. (-1, -1) = saiu. */
   onHover(u: number, v: number): string | null;
-  /** Clique/toque na imagem. */
-  onPick(u: number, v: number, touch: boolean): void;
+  /** Clique/toque na imagem. (x, y) = posição em px relativa ao palco. */
+  onPick(u: number, v: number, touch: boolean, x: number, y: number): void;
 }
 
 export interface StageTitle {
@@ -296,7 +296,8 @@ export class Stage {
     this.frame.addEventListener('click', (e) => {
       if (this.comparing) return;
       const [u, v] = uvOf(e);
-      this.actions.onPick(u, v, (e as PointerEvent).pointerType === 'touch');
+      const s = this.el.getBoundingClientRect();
+      this.actions.onPick(u, v, (e as PointerEvent).pointerType === 'touch', e.clientX - s.left, e.clientY - s.top);
     });
   }
 
