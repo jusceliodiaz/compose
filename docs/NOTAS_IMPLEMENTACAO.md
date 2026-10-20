@@ -83,3 +83,14 @@ Renders em `renders/sala_estar` (3840×2160). Problemas:
 O importador agora mede o alinhamento máscara × geometria (`mask_alignment`: fração da borda do slot que
 cai num SALTO do UV) e recusa abaixo de 60% (`--ignorar-alinhamento` para forçar), avisa abaixo de 75%,
 e avisa quando o UV vem cortado em 1,0.
+
+## Luz e bordas na troca de material (2026-10-20)
+
+- **Luz = T⁻¹(diff_light do Corona)** quando os passes vêm com tone mapping. Antes era `T⁻¹(beauty)/albedo`,
+  que (1) amplificava o canal fraco do albedo original (piso de madeira → pouco azul → luz azulada em qualquer
+  material neutro) e (2) contava o reflexo da janela no piso como luz difusa (piso sempre claro demais). O
+  reflexo agora vem de `T⁻¹(reflect)`, controlado por `gloss_keep`.
+- **Bordas:** o beauty tem antialiasing e as máscaras são duras; o pixel da divisa carregava a cor antiga e
+  aparecia um fio ao trocar o vizinho. `tools/edge_clean.py` rotula as regiões, preenche frestas de ≤ 4 px sem
+  máscara e copia, numa faixa de 2 px de cada lado das divisas, os valores do pixel interior da mesma região
+  (beauty, luz, reflexo, grupos de luz). Custo: o "Original" perde o antialiasing nessa faixa (imperceptível em 4K).

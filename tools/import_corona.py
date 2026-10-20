@@ -36,6 +36,7 @@ import numpy as np
 
 import exr_io
 import pack_uv
+import edge_clean
 import reconstruct_check
 import tone_curve
 import validate_catalog
@@ -387,6 +388,10 @@ def run(args: argparse.Namespace) -> int:
         print(f"ERRO: {len(slots)} superfícies; o configurador aceita até {MAX_SLOTS} por câmera "
               f"({[s.id for s in slots]}). Escolha as principais com --slot.", file=sys.stderr)
         return 1
+    # máscaras duras e sem frestas: cada pixel pertence a uma superfície (ou ao fundo)
+    labels = edge_clean.fill_gaps(edge_clean.region_labels([slot_mask[s.id] for s in slots]))
+    for i, s in enumerate(slots):
+        slot_mask[s.id] = (labels == i + 1).astype(np.float32)
     # reempacota para a web: 3 slots por PNG (R, G, B), na ordem dos --slot
     packed: list[dict] = []
     slot_ref: dict[str, tuple[int, str]] = {}
@@ -484,18 +489,41 @@ def run(args: argparse.Namespace) -> int:
         lin = curve.inverse
         tone_json = {"operator": "lut", "exposure": 1.0, "lut": curve.lut()}
     beauty_lin = lin(beauty).astype(np.float32)
-    exr_io.write_exr(dest / "beauty.exr", beauty_lin)
-    if args.light_from_beauty:
+    if args.light_from_beauty and display_referred and "diff_light" in img:
+        # Luz difusa = T⁻¹(diff_light): o passe do Corona já é a luz SEM reflexo e sem depender do albedo
+        # (dividir o beauty pelo albedo amplificava o canal fraco — piso de madeira → luz azulada — e
+        # contava o reflexo da janela como luz). O reflexo vem do passe reflect, controlado pelo gloss_keep.
+        light = lin(rgb(img["diff_light"])).astype(np.float32)
+        glossy = lin(rgb(img["reflect"])).astype(np.float32) if "reflect" in img else None
+        use_glossy = glossy is not None
+        print("   diff_light = T⁻¹(diff_light do Corona); glossy = T⁻¹(reflect)  (modo --light-from-beauty)")
+    elif args.light_from_beauty:
         # Fallback dos docs (Seção 4.2): luz ≈ beauty / albedo original (o reflexo fica embutido na luz).
-        light = beauty_lin / np.maximum(rgb(img["diff_color"]), 0.02)
-        print("   diff_light = T⁻¹(beauty) / max(diff_color, 0.02)  (modo --light-from-beauty)")
-        exr_io.write_exr(dest / "diff_light.exr", np.minimum(light, 60000.0))
+        light = (beauty_lin / np.maximum(rgb(img["diff_color"]), 0.02)).astype(np.float32)
+        glossy = None
+        print("   diff_light = T⁻¹(beauty) / max(diff_color, 0.02)  (fallback, sem diff_light utilizável)")
     else:
-        exr_io.write_exr(dest / "diff_light.exr", rgb(img["diff_light"]))
-    if use_glossy:
-        exr_io.write_exr(dest / "glossy.exr", rgb(img["reflect"]))
-    for g, a in lgi.items():
-        exr_io.write_exr(dest / f"lg_{g}.exr", np.minimum(lin(rgb(a)), 60000.0).astype(np.float32))
+        light = rgb(img["diff_light"]).astype(np.float32)
+        glossy = rgb(img["reflect"]).astype(np.float32) if use_glossy else None
+    lg_lin = {g: lin(rgb(a)).astype(np.float32) for g, a in lgi.items()}
+
+    # Bordas: o beauty tem antialiasing (pixel da divisa = metade de cada superfície) e as máscaras são duras.
+    # Copia, numa faixa de 2 px de cada lado das divisas, os valores do pixel interior da mesma região —
+    # senão a cor antiga "vaza" como um fio ao trocar o material do vizinho.
+    dst, src = edge_clean.nearest_interior(labels, width=2)
+    print(f"   bordas limpas: {dst.size} pixels nas divisas entre superfícies")
+    beauty_lin = edge_clean.apply(beauty_lin, dst, src)
+    light = edge_clean.apply(light, dst, src)
+    if glossy is not None:
+        glossy = edge_clean.apply(glossy, dst, src)
+    lg_lin = {g: edge_clean.apply(a, dst, src) for g, a in lg_lin.items()}
+
+    exr_io.write_exr(dest / "beauty.exr", beauty_lin)
+    exr_io.write_exr(dest / "diff_light.exr", np.minimum(light, 60000.0))
+    if use_glossy and glossy is not None:
+        exr_io.write_exr(dest / "glossy.exr", np.minimum(glossy, 60000.0))
+    for g, a in lg_lin.items():
+        exr_io.write_exr(dest / f"lg_{g}.exr", np.minimum(a, 60000.0))
 
     # 6. reconstrução
     recon_ok = None
