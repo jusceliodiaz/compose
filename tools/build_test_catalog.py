@@ -111,7 +111,8 @@ def build_all(assets: Path) -> Path:
     cat_path = assets / "catalog" / "test_room.json"
     cat_path.parent.mkdir(parents=True, exist_ok=True)
     cat_path.write_text(json.dumps(catalog(rng, w, h), indent=2, ensure_ascii=False), encoding="utf-8")
-    update_index(cat_path.parent, "test_room", "Sala de teste")
+    # a sala sintética é para testes: existe (?project=test_room), mas não aparece no menu
+    update_index(cat_path.parent, "test_room", "Sala de teste", listed=False)
     print(f"catálogo: {cat_path}  uv_range = {[round(v, 4) for v in rng]}")
     return cat_path
 

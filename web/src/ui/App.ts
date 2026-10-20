@@ -32,7 +32,8 @@ async function resolveProject(): Promise<{ id: string; url: string; projects: Pr
     /* sem índice: segue com a sala de teste */
   }
   const asked = new URLSearchParams(location.search).get('project');
-  const id = projects.some((p) => p.id === asked) ? asked! : asked && !projects.length ? asked : def;
+  // ?project= abre qualquer catálogo existente; a lista do índice só define o que aparece no menu
+  const id = asked && /^[\w-]+$/.test(asked) ? asked : def;
   const entry = projects.find((p) => p.id === id);
   return { id, url: `${BASE}${entry?.catalog ?? `assets/catalog/${id}.json`}`, projects };
 }
