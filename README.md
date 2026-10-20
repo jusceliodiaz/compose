@@ -65,3 +65,17 @@ Os assets gerados não vão para o git (são reprodutíveis); rode o gerador dep
 | Export PNG | `web/src/engine/export.ts` |
 | Gerador da sala de teste | `tools/make_test_assets.py` |
 | Empacotar UV / máscaras, validar | `tools/pack_uv.py`, `pack_masks.py`, `reconstruct_check.py`, `validate_catalog.py` |
+
+## Biblioteca de materiais
+
+`tools/material_library.json` define os materiais de cada tipo de superfície (piso, pedra, parede/tinta,
+tecido, tapete, marcenaria). As texturas vêm da [Poly Haven](https://polyhaven.com) e da
+[ambientCG](https://ambientcg.com), ambas CC0 (uso livre, inclusive comercial):
+
+```bash
+python tools/fetch_textures.py      # baixa (2K, ou 4K para texturas ≥ 2,5 m), converte e gera créditos
+```
+
+Para adicionar um material: inclua uma entrada em `materials` (id da Poly Haven ou ambientCG, nome, preço)
+e o id na lista do tipo em `kinds`; rode o `fetch_textures.py` e reimporte a cena com o `import_corona.py`.
+Tecidos com `"tintable"` perdem a cor da foto e ganham as cores da paleta (`palettes`).

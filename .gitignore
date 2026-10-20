@@ -7,3 +7,4 @@ renders/
 web/public/assets/scenes/
 web/public/assets/materials/
 web/public/assets/catalog/*.json
+tools/.cache/

@@ -110,7 +110,46 @@ LACQUERS = [
 ]
 
 
-def library(kind: str) -> list[dict]:
+LIBRARY = ROOT / "tools" / "material_library.json"
+NEUTRAL_MEAN = 0.5  # fetch_textures.py normaliza as texturas "tintable" para esta luminância média
+
+
+def library(kind: str, public: Path | None = None) -> list[dict]:
+    """Opções de material para um tipo de superfície: biblioteca baixada (tools/fetch_textures.py) se existir;
+    senão, os materiais procedurais do gerador de teste."""
+    manifest_path = (public or ROOT / "web" / "public") / "assets" / "materials" / "lib" / "manifest.json"
+    if LIBRARY.is_file() and manifest_path.is_file():
+        lib = json.loads(LIBRARY.read_text(encoding="utf-8"))
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        out = []
+        for mid in lib["kinds"].get(kind, []):
+            m = lib["materials"][mid]
+            o: dict = {"id": mid, "name": m["name"], "finish": m.get("finish", ""),
+                       "gloss_keep": m.get("gloss_keep", 0.5), "sku": mid.upper().replace("_", "-")}
+            if "price" in m:
+                o["price"] = {"value": m["price"], "unit": "m2", "currency": "BRL"}
+            if "color" in m:
+                o["albedo_color"] = _hex_to_linear(m["color"])
+                o["finish"] = f"{o['finish']} · {m['color']}"
+            else:
+                e = manifest.get(mid)
+                if not e:
+                    print(f"aviso: material {mid} não foi baixado (rode tools/fetch_textures.py) — ignorado")
+                    continue
+                o.update(thumbnail=f"assets/materials/lib/{mid}/thumb.webp",
+                         diffuse_map=f"assets/materials/lib/{mid}/albedo.webp",
+                         texture_size_m=e["size_m"], default_tiling=[1.0, 1.0])
+                if m.get("tintable"):
+                    o["tint_variants"] = [
+                        {"id": i, "name": n, "tint": [round(c / NEUTRAL_MEAN, 4) for c in _hex_to_linear(hx)]}
+                        for i, n, hx in lib["palettes"][m["tintable"]]]
+            out.append(o)
+        out += [x for x in library_procedural(kind) if x.get("is_test")]
+        return out
+    return library_procedural(kind)
+
+
+def library_procedural(kind: str) -> list[dict]:
     m = "assets/materials"
 
     def tex(mid, name, size, price, **kw):
@@ -491,7 +530,7 @@ def run(args: argparse.Namespace) -> int:
             "allow_user_transform": {"scale": [0.5, 2.0], "rotation": s.kind != "paint", "offset": s.kind != "paint"},
             "gloss_keep": GLOSS_KEEP[s.kind],
             "area_m2": areas[s.id],
-            "options": [original, *library(s.kind)],
+            "options": [original, *library(s.kind, public)],
         })
 
     catalog = {

@@ -1,0 +1,550 @@
+{
+  "_doc": "Biblioteca de materiais do configurador. 'polyhaven'/'ambientcg' = id no acervo (CC0); tools/fetch_textures.py baixa e converte. 'size_m' = medida física da textura [U, V] em metros. 'tintable' = a textura é neutralizada (cinza) e as 'colors' viram variações. 'color' = material sólido (tinta/laca). Preços em BRL por m² (referência).",
+  "kinds": {
+    "floor": [
+      "carvalho_claro",
+      "carvalho_natural",
+      "tabua_corrida",
+      "taco",
+      "ipe_escuro",
+      "espinha_de_peixe",
+      "marmore_branco",
+      "marmore_cinza",
+      "travertino",
+      "granilite",
+      "porcelanato",
+      "cimento_queimado"
+    ],
+    "stone": [
+      "marmore_branco",
+      "marmore_cinza",
+      "nero_marquina",
+      "marmore_bege",
+      "travertino",
+      "granilite"
+    ],
+    "paint": [
+      "branco_gelo",
+      "off_white",
+      "areia",
+      "salvia",
+      "terracota",
+      "petroleo",
+      "grafite",
+      "reboco_branco",
+      "reboco_cinza",
+      "textura_bege",
+      "estuque",
+      "tijolinho_branco",
+      "revestimento_branco",
+      "painel_carvalho",
+      "painel_nogueira",
+      "marmore_branco",
+      "travertino"
+    ],
+    "fabric": [
+      "linho_rustico",
+      "veludo",
+      "boucle",
+      "veludo_cotele",
+      "la_batida",
+      "couro_cinza",
+      "couro_conhaque"
+    ],
+    "rug": [
+      "tapete_boucle",
+      "tapete_xadrez",
+      "tapete_la_espinha",
+      "juta",
+      "la_tricotada",
+      "tapete_veludo"
+    ],
+    "cabinet": [
+      "maple",
+      "freijo",
+      "carvalho_lam",
+      "nogueira",
+      "teca",
+      "madeira_preta",
+      "laca_branca",
+      "laca_off_white",
+      "laca_verde_oliva",
+      "laca_azul_petroleo",
+      "laca_grafite"
+    ]
+  },
+  "palettes": {
+    "sofa": [
+      [
+        "off_white",
+        "Off-white",
+        "#E6E0D4"
+      ],
+      [
+        "areia",
+        "Areia",
+        "#CBB696"
+      ],
+      [
+        "cinza",
+        "Cinza",
+        "#9A9893"
+      ],
+      [
+        "grafite",
+        "Grafite",
+        "#4A4946"
+      ],
+      [
+        "oliva",
+        "Oliva",
+        "#7A7854"
+      ],
+      [
+        "terracota",
+        "Terracota",
+        "#A45D44"
+      ],
+      [
+        "azul",
+        "Azul",
+        "#3F566A"
+      ],
+      [
+        "musgo",
+        "Musgo",
+        "#5E6A4C"
+      ]
+    ],
+    "rug": [
+      [
+        "cru",
+        "Cru",
+        "#DCD2C1"
+      ],
+      [
+        "areia",
+        "Areia",
+        "#C2AD8E"
+      ],
+      [
+        "cinza",
+        "Cinza",
+        "#8E8B86"
+      ],
+      [
+        "caramelo",
+        "Caramelo",
+        "#A6764B"
+      ],
+      [
+        "grafite",
+        "Grafite",
+        "#44433F"
+      ]
+    ]
+  },
+  "materials": {
+    "carvalho_claro": {
+      "name": "Carvalho claro",
+      "polyhaven": "laminate_floor_02",
+      "finish": "Laminado · réguas",
+      "price": 119.9,
+      "gloss_keep": 0.5
+    },
+    "carvalho_natural": {
+      "name": "Carvalho natural",
+      "polyhaven": "wood_floor",
+      "finish": "Madeira de engenharia",
+      "price": 189.9,
+      "gloss_keep": 0.55
+    },
+    "tabua_corrida": {
+      "name": "Tábua corrida",
+      "polyhaven": "laminate_floor_03",
+      "finish": "Réguas de madeira",
+      "price": 229.9,
+      "gloss_keep": 0.5
+    },
+    "ipe_escuro": {
+      "name": "Madeira escura",
+      "polyhaven": "dark_wooden_planks",
+      "finish": "Réguas largas",
+      "price": 249.9,
+      "gloss_keep": 0.5
+    },
+    "espinha_de_peixe": {
+      "name": "Espinha de peixe",
+      "polyhaven": "herringbone_parquet",
+      "finish": "Parquet de madeira",
+      "price": 329.9,
+      "gloss_keep": 0.55
+    },
+    "marmore_branco": {
+      "name": "Mármore branco",
+      "ambientcg": "Marble021",
+      "size_m": [
+        2.0,
+        2.0
+      ],
+      "finish": "Pedra natural polida",
+      "price": 690.0,
+      "gloss_keep": 0.85
+    },
+    "granilite": {
+      "name": "Granilite",
+      "polyhaven": "terrazzo_tiles",
+      "finish": "Terrazzo em placas",
+      "price": 260.0,
+      "gloss_keep": 0.7
+    },
+    "porcelanato": {
+      "name": "Porcelanato",
+      "polyhaven": "interior_tiles",
+      "finish": "Placas grandes",
+      "price": 149.9,
+      "gloss_keep": 0.7
+    },
+    "cimento_queimado": {
+      "name": "Cimento queimado",
+      "polyhaven": "scuffed_cement",
+      "finish": "Revestimento contínuo",
+      "price": 140.0,
+      "gloss_keep": 0.5
+    },
+    "branco_gelo": {
+      "name": "Branco gelo",
+      "color": "#EEEDE8",
+      "finish": "Tinta acrílica fosca",
+      "price": 38.0,
+      "gloss_keep": 0.15
+    },
+    "off_white": {
+      "name": "Off-white",
+      "color": "#E7E1D5",
+      "finish": "Tinta acrílica fosca",
+      "price": 38.0,
+      "gloss_keep": 0.15
+    },
+    "areia": {
+      "name": "Areia",
+      "color": "#D9CBB3",
+      "finish": "Tinta acrílica fosca",
+      "price": 38.0,
+      "gloss_keep": 0.15
+    },
+    "salvia": {
+      "name": "Verde sálvia",
+      "color": "#A2AD97",
+      "finish": "Tinta acrílica fosca",
+      "price": 38.0,
+      "gloss_keep": 0.15
+    },
+    "terracota": {
+      "name": "Terracota",
+      "color": "#B5704F",
+      "finish": "Tinta acrílica fosca",
+      "price": 38.0,
+      "gloss_keep": 0.15
+    },
+    "petroleo": {
+      "name": "Azul petróleo",
+      "color": "#2F5662",
+      "finish": "Tinta acrílica fosca",
+      "price": 38.0,
+      "gloss_keep": 0.15
+    },
+    "grafite": {
+      "name": "Grafite",
+      "color": "#4B4A48",
+      "finish": "Tinta acrílica fosca",
+      "price": 38.0,
+      "gloss_keep": 0.15
+    },
+    "reboco_branco": {
+      "name": "Reboco branco",
+      "polyhaven": "white_plaster_02",
+      "finish": "Massa texturizada",
+      "price": 65.0,
+      "gloss_keep": 0.15
+    },
+    "reboco_cinza": {
+      "name": "Reboco cinza",
+      "polyhaven": "plaster_grey_04",
+      "finish": "Massa texturizada",
+      "price": 65.0,
+      "gloss_keep": 0.15
+    },
+    "textura_bege": {
+      "name": "Textura bege",
+      "polyhaven": "beige_wall_001",
+      "finish": "Massa travertino",
+      "price": 85.0,
+      "gloss_keep": 0.15
+    },
+    "estuque": {
+      "name": "Estuque",
+      "polyhaven": "white_stucco",
+      "finish": "Estuque branco",
+      "price": 75.0,
+      "gloss_keep": 0.2
+    },
+    "tijolinho_branco": {
+      "name": "Tijolinho branco",
+      "polyhaven": "whitewashed_brick",
+      "finish": "Tijolo aparente caiado",
+      "price": 140.0,
+      "gloss_keep": 0.15
+    },
+    "linho_rustico": {
+      "name": "Linho rústico",
+      "polyhaven": "rough_linen",
+      "finish": "Tecido de linho",
+      "price": 149.9,
+      "gloss_keep": 0.08,
+      "tintable": "sofa"
+    },
+    "veludo": {
+      "name": "Veludo",
+      "polyhaven": "velour_velvet",
+      "finish": "Veludo liso",
+      "price": 189.9,
+      "gloss_keep": 0.2,
+      "tintable": "sofa"
+    },
+    "boucle": {
+      "name": "Bouclê",
+      "polyhaven": "curly_teddy_natural",
+      "finish": "Lã bouclê",
+      "price": 219.9,
+      "gloss_keep": 0.05,
+      "tintable": "sofa"
+    },
+    "veludo_cotele": {
+      "name": "Veludo cotelê",
+      "polyhaven": "ribbed_corduroy",
+      "finish": "Cotelê",
+      "price": 169.9,
+      "gloss_keep": 0.15,
+      "tintable": "sofa"
+    },
+    "la_batida": {
+      "name": "Lã batida",
+      "polyhaven": "caban",
+      "finish": "Lã",
+      "price": 199.9,
+      "gloss_keep": 0.05,
+      "tintable": "sofa"
+    },
+    "couro_conhaque": {
+      "name": "Couro conhaque",
+      "polyhaven": "brown_leather",
+      "finish": "Couro natural",
+      "price": 459.9,
+      "gloss_keep": 0.45
+    },
+    "tapete_boucle": {
+      "name": "Bouclê",
+      "polyhaven": "curly_teddy_natural",
+      "finish": "Tapete de lã bouclê",
+      "price": 260.0,
+      "gloss_keep": 0.05,
+      "tintable": "rug"
+    },
+    "tapete_la_espinha": {
+      "name": "Lã espinha de peixe",
+      "polyhaven": "poly_wool_herringbone",
+      "finish": "Tapete de lã",
+      "price": 240.0,
+      "gloss_keep": 0.05,
+      "tintable": "rug"
+    },
+    "juta": {
+      "name": "Juta natural",
+      "polyhaven": "hessian_230",
+      "finish": "Fibra natural",
+      "price": 180.0,
+      "gloss_keep": 0.05
+    },
+    "la_tricotada": {
+      "name": "Lã tricotada",
+      "polyhaven": "knitted_fleece",
+      "finish": "Tapete de lã",
+      "price": 230.0,
+      "gloss_keep": 0.05,
+      "tintable": "rug"
+    },
+    "tapete_veludo": {
+      "name": "Veludo",
+      "polyhaven": "velour_velvet",
+      "finish": "Tapete de veludo",
+      "price": 300.0,
+      "gloss_keep": 0.15,
+      "tintable": "rug"
+    },
+    "carvalho_lam": {
+      "name": "Carvalho",
+      "polyhaven": "oak_veneer_01",
+      "finish": "Lâmina de madeira",
+      "price": 520.0,
+      "gloss_keep": 0.4
+    },
+    "nogueira": {
+      "name": "Nogueira",
+      "polyhaven": "walnut_veneer",
+      "finish": "Lâmina de madeira",
+      "price": 640.0,
+      "gloss_keep": 0.4
+    },
+    "teca": {
+      "name": "Teca",
+      "polyhaven": "teak_veneer",
+      "finish": "Lâmina de madeira",
+      "price": 600.0,
+      "gloss_keep": 0.4
+    },
+    "madeira_preta": {
+      "name": "Madeira escura",
+      "polyhaven": "flamed_black_veneer",
+      "finish": "Lâmina tingida",
+      "price": 600.0,
+      "gloss_keep": 0.4
+    },
+    "laca_branca": {
+      "name": "Laca branca",
+      "color": "#F1F0EC",
+      "finish": "Laca semibrilho",
+      "price": 420.0,
+      "gloss_keep": 0.5
+    },
+    "laca_off_white": {
+      "name": "Laca off-white",
+      "color": "#E4DDD0",
+      "finish": "Laca semibrilho",
+      "price": 420.0,
+      "gloss_keep": 0.5
+    },
+    "laca_verde_oliva": {
+      "name": "Laca verde oliva",
+      "color": "#6F7350",
+      "finish": "Laca semibrilho",
+      "price": 420.0,
+      "gloss_keep": 0.5
+    },
+    "laca_azul_petroleo": {
+      "name": "Laca azul petróleo",
+      "color": "#2E4F58",
+      "finish": "Laca semibrilho",
+      "price": 420.0,
+      "gloss_keep": 0.5
+    },
+    "laca_grafite": {
+      "name": "Laca grafite",
+      "color": "#3D3C3A",
+      "finish": "Laca semibrilho",
+      "price": 420.0,
+      "gloss_keep": 0.5
+    },
+    "taco": {
+      "name": "Taco",
+      "polyhaven": "wooden_floor_01",
+      "finish": "Taco de madeira",
+      "price": 199.9,
+      "gloss_keep": 0.5
+    },
+    "marmore_cinza": {
+      "name": "Mármore cinza",
+      "ambientcg": "Marble012",
+      "size_m": [
+        2.0,
+        2.0
+      ],
+      "finish": "Pedra natural polida",
+      "price": 720.0,
+      "gloss_keep": 0.85
+    },
+    "nero_marquina": {
+      "name": "Nero Marquina",
+      "ambientcg": "Marble016",
+      "size_m": [
+        2.0,
+        2.0
+      ],
+      "finish": "Mármore preto polido",
+      "price": 980.0,
+      "gloss_keep": 0.9
+    },
+    "marmore_bege": {
+      "name": "Mármore bege",
+      "ambientcg": "Marble014",
+      "size_m": [
+        2.0,
+        2.0
+      ],
+      "finish": "Crema · polido",
+      "price": 640.0,
+      "gloss_keep": 0.85
+    },
+    "travertino": {
+      "name": "Travertino",
+      "ambientcg": "Travertine009",
+      "size_m": [
+        2.0,
+        2.0
+      ],
+      "finish": "Travertino romano",
+      "price": 590.0,
+      "gloss_keep": 0.6
+    },
+    "revestimento_branco": {
+      "name": "Revestimento branco",
+      "polyhaven": "long_white_tiles",
+      "finish": "Plaquetas cerâmicas",
+      "price": 120.0,
+      "gloss_keep": 0.6
+    },
+    "painel_carvalho": {
+      "name": "Painel carvalho",
+      "polyhaven": "oak_veneer_01",
+      "finish": "Painel de madeira",
+      "price": 320.0,
+      "gloss_keep": 0.4
+    },
+    "painel_nogueira": {
+      "name": "Painel nogueira",
+      "polyhaven": "walnut_veneer",
+      "finish": "Painel de madeira",
+      "price": 360.0,
+      "gloss_keep": 0.4
+    },
+    "couro_cinza": {
+      "name": "Couro cinza",
+      "polyhaven": "leather_white",
+      "finish": "Couro natural",
+      "price": 459.9,
+      "gloss_keep": 0.45
+    },
+    "tapete_xadrez": {
+      "name": "Lã xadrez",
+      "polyhaven": "wool_boucle",
+      "finish": "Tapete de lã",
+      "price": 250.0,
+      "gloss_keep": 0.05,
+      "tintable": "rug"
+    },
+    "maple": {
+      "name": "Maple",
+      "polyhaven": "white_maple_veneer",
+      "finish": "Lâmina de madeira clara",
+      "price": 520.0,
+      "gloss_keep": 0.4
+    },
+    "freijo": {
+      "name": "Freijó",
+      "polyhaven": "ash_veneer",
+      "finish": "Lâmina de madeira",
+      "price": 560.0,
+      "gloss_keep": 0.4
+    }
+  }
+}
