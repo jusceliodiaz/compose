@@ -1633,6 +1633,7 @@ button:disabled {
 
 .qp.is-open .qp-item:hover,
 .qp.is-open .qp-item:focus-visible {
+  z-index: 2; /* o rótulo da esfera apontada fica por cima das vizinhas */
   transform: translate(var(--dx), var(--dy)) scale(1.12);
   transition-delay: 0s;
   box-shadow: 0 0 0 2px var(--ink), 0 14px 34px -8px rgba(20, 18, 14, 0.5);
@@ -1753,5 +1754,29 @@ button:disabled {
   .qp-label {
     opacity: 1;
     transform: translate(-50%, 0);
+  }
+}
+
+/* esfera "voltar ao original" no leque */
+.qp-item--reset {
+  left: -31px;
+  top: -31px;
+  width: 62px;
+  height: 62px;
+}
+
+.qp-img--reset {
+  display: grid;
+  place-items: center;
+  background: #e3e1dc;
+  color: var(--ink-2);
+}
+
+@media (pointer: coarse) {
+  .qp-item--reset {
+    left: -34px;
+    top: -34px;
+    width: 68px;
+    height: 68px;
   }
 }

@@ -138,8 +138,8 @@ test('leque de 3 opções: prévia no hover, aplica no clique, Esc desfaz a pré
     return page.locator('.qp.is-open .qp-item').count();
   }).toBe(3);
   const names = await page.locator('.qp-item').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
-  // sem trio no catálogo: as 3 primeiras com textura; a atual (carvalho) vem marcada
-  expect(names[0]).toMatch(/Carvalho/);
+  // 1ª esfera = voltar ao padrão (carvalho, que já está aplicado → marcada); depois o trio sem repetir o padrão
+  expect(names[0]).toMatch(/Voltar ao original/);
   expect(names[1]).toMatch(/Mármore/);
   await expect(page.locator('.qp-item').first()).toHaveAttribute('aria-current', 'true');
 
@@ -159,4 +159,10 @@ test('leque de 3 opções: prévia no hover, aplica no clique, Esc desfaz a pré
   await expect.poll(state).toEqual({ saved: 'concrete', shown: 'concrete' });
   await expect.poll(() => page.url()).toContain('floor=concrete');
   await expect(page.locator('.qp')).toBeHidden();
+
+  // a esfera de voltar devolve ao padrão
+  await page.mouse.click(x, y);
+  await expect(page.locator('.qp.is-open .qp-item')).toHaveCount(3);
+  await page.locator('.qp-item--reset').click();
+  await expect.poll(state).toEqual({ saved: 'oak', shown: 'oak' });
 });
