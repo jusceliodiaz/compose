@@ -25,6 +25,13 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import numpy as np
 
 import exr_io
@@ -36,7 +43,7 @@ from catalog_index import update_index
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = ["beauty", "diff_light", "uv", "masks_a"]
-OPTIONAL = ["diff_color", "reflect", "refract", "transl", "emission", "sss", "volum", "masks_b"]
+OPTIONAL = ["diff_color", "reflect", "refract", "transl", "emission", "sss", "volum", "masks_b", "masks_c"]
 EXTRA_COMPONENTS = ["refract", "transl", "emission", "sss", "volum"]
 
 
@@ -191,6 +198,43 @@ def original_thumb(beauty_ldr: np.ndarray, mask: np.ndarray, out: Path) -> None:
     exr_io.write_webp(out, exr_io.resize_area(beauty_ldr[y0:y0 + side, x0:x0 + side], (256, 256)), 88)
 
 
+ALIGN_FAIL = 0.60
+ALIGN_WARN = 0.75
+
+
+def mask_alignment(mask: np.ndarray, uv: np.ndarray) -> tuple[float, int]:
+    """Fração da borda do slot que coincide com uma borda da geometria (salto no UV).
+
+    Numa máscara do próprio render a borda do objeto É uma borda de UV (0,78–0,98 nas cenas testadas);
+    uma máscara feita de outra câmera/resolução ou desenhada à mão fica bem abaixo (≈ 0,05–0,5).
+    """
+    import cv2
+
+    m = (mask > 0.5).astype(np.uint8)
+    edge_m = cv2.morphologyEx(m, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8)) > 0
+    edge_m[:3] = edge_m[-3:] = False
+    edge_m[:, :3] = edge_m[:, -3:] = False
+    g = np.zeros(m.shape, np.float32)
+    for c in (uv[..., 0].astype(np.float32), uv[..., 1].astype(np.float32)):
+        gx = np.abs(np.diff(c, axis=1, append=c[:, -1:]))
+        gy = np.abs(np.diff(c, axis=0, append=c[-1:, :]))
+        g = np.maximum(g, np.maximum(gx, gy))
+    # borda de verdade = SALTO: gradiente muito maior que o dos vizinhos (piso visto de raspão tem
+    # gradiente alto, mas suave, e não conta)
+    jump = g > 4 * cv2.medianBlur(g, 5) + 1e-4
+    edge_uv = cv2.dilate(jump.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    n = int(edge_m.sum())
+    return (float((edge_m & edge_uv).sum()) / n if n else 1.0), n
+
+
+def uv_clamped(uv: np.ndarray, valid: np.ndarray) -> bool:
+    """UV salvo com clamp em [0, 1]: muitos pixels exatamente em 1,0 e nada acima."""
+    u, v = uv[..., 0][valid], uv[..., 1][valid]
+    if u.size == 0 or max(float(u.max()), float(v.max())) > 1.0 + 1e-6:
+        return False
+    return float(((u >= 1.0 - 1e-6) | (v >= 1.0 - 1e-6)).mean()) > 0.02
+
+
 def rgb(img: np.ndarray) -> np.ndarray:
     if img.shape[2] >= 3:
         return img[..., :3]
@@ -240,7 +284,7 @@ def run(args: argparse.Namespace) -> int:
     h, w = img["beauty"].shape[:2]
 
     # 2. máscaras → PNG RGB 8-bit (3 slots por arquivo)
-    mask_files = [m for m in ("masks_a", "masks_b") if m in img]
+    mask_files = [m for m in ("masks_a", "masks_b", "masks_c") if m in img]
     masks_f: dict[str, np.ndarray] = {}
     for m in mask_files:
         mf = np.clip(rgb(img[m]), 0.0, 1.0)
@@ -264,8 +308,22 @@ def run(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
 
-    # 3. UV → hi/lo (validade = união das máscaras dos slots)
+    # 2b. a máscara precisa coincidir com a geometria desta câmera
     uv = img["uv"]
+    bad = []
+    for s in slots:
+        score, n = mask_alignment(slot_mask[s.id], uv)
+        tag = "ok" if score >= ALIGN_WARN else ("AVISO" if score >= ALIGN_FAIL else "DESALINHADA")
+        print(f"   alinhamento máscara×geometria {s.id:<9} {score * 100:5.1f}% da borda  {tag}")
+        if score < ALIGN_FAIL:
+            bad.append(s.id)
+    if bad and not args.ignore_alignment:
+        print(f"ERRO: a máscara de {bad} não coincide com a geometria desta câmera (borda do slot não cai nas bordas\n"
+              "      do UV). Ela foi feita de outra câmera/resolução ou desenhada à mão? Gere masks_* no próprio render\n"
+              "      (CMasking_Mask no modo por objetos). Para importar mesmo assim: --ignorar-alinhamento", file=sys.stderr)
+        return 1
+
+    # 3. UV → hi/lo (validade = união das máscaras dos slots)
     valid = np.zeros((h, w), bool)
     for m in slot_mask.values():
         valid |= m > 0.5
@@ -274,6 +332,9 @@ def run(args: argparse.Namespace) -> int:
     exr_io.write_png(dest / "uv_lo.png", lo)
     (dest / "uv_meta.json").write_text(json.dumps({"uv_encoding": "u16_hilo", "uv_range": uv_range}, indent=2), encoding="utf-8")
     print(f"   uv_range = [{', '.join(f'{v:.3f}' for v in uv_range)}] m")
+    if uv_clamped(uv, valid):
+        print("aviso: o UV está CORTADO em 1,0 (muitos pixels exatamente em 1). O EXR foi salvo com clamp/tone mapping:\n"
+              "       a escala das texturas e as áreas ficam erradas. Salve o elemento uv em EXR float, sem tone mapping.")
     if max(uv_range[2] - uv_range[0], uv_range[3] - uv_range[1]) <= 1.01:
         print("aviso: o UV cabe em 0–1 — não parece estar em metros (confira o UV_config no canal 2)")
 
@@ -350,8 +411,17 @@ def run(args: argparse.Namespace) -> int:
 
     # 7. miniaturas "Original" e áreas
     areas: dict[str, float] = dict(args.area)
+    used_masks = [m for m in mask_files if any(s.mask == m for s in slots)]
+    if not used_masks:
+        used_masks = mask_files[:1]
+    if len(used_masks) > 2:
+        print("aviso: limitando a 2 arquivos de máscara para o WebGL (máximo suportado pelo shader)")
+        used_masks = used_masks[:2]
+
     slots_json = []
     for s in slots:
+        if s.mask not in used_masks:
+            continue
         original_thumb(ldr, slot_mask[s.id], dest / f"thumb_original_{s.id}.webp")
         if s.id not in areas:
             areas[s.id] = round(visible_area_m2(uv, slot_mask[s.id]), 2)
@@ -361,7 +431,7 @@ def run(args: argparse.Namespace) -> int:
         slots_json.append({
             "id": s.id,
             "name": s.name,
-            "mask_ref": {"file": mask_files.index(s.mask), "channel": s.channel},
+            "mask_ref": {"file": used_masks.index(s.mask), "channel": s.channel},
             "default_texture": "original",
             "allow_user_transform": {"scale": [0.5, 2.0], "rotation": s.kind != "paint", "offset": s.kind != "paint"},
             "gloss_keep": {"floor": 0.6, "stone": 0.8, "paint": 0.15}[s.kind],
@@ -388,7 +458,7 @@ def run(args: argparse.Namespace) -> int:
             **({"glossy": f"{rel_cam}/glossy.exr"} if use_glossy else {}),
             "masks_packed": [
                 {"file": f"{rel_cam}/{m}.png", "channels": {s.channel: s.id for s in slots if s.mask == m}}
-                for m in mask_files
+                for m in used_masks
             ],
         },
         "light_groups": [
@@ -446,6 +516,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--lg-kelvin", type=_kv(float), action="append", default=[], help="grupo=K com que a luz foi renderizada")
     ap.add_argument("--lg-name", type=_kv(str), action="append", default=[], help="grupo=Nome na interface")
     ap.add_argument("--default", action="store_true", help="tornar este o projeto padrão da página")
+    ap.add_argument("--ignorar-alinhamento", dest="ignore_alignment", action="store_true",
+                    help="importa mesmo com a máscara desalinhada da geometria")
     ap.add_argument("--masks-png", type=Path, help="PNG RGB que substitui o masks_a do render (ex.: derive_masks.py)")
     ap.add_argument("--light-from-beauty", action="store_true",
                     help="diff_light = beauty / diff_color (quando os passes de luz não reconstroem o beauty)")

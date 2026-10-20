@@ -110,3 +110,17 @@ def test_import_corona_falha_claro_sem_mascara(corona_dir, tmp_path, capsys):
     rc = import_corona.main([str(d), "x", "cam1", "--web-root", str(tmp_path / "pub")])
     assert rc == 1
     assert "nenhum slot com máscara" in capsys.readouterr().err
+
+
+def test_import_corona_recusa_mascara_desalinhada(corona_dir, tmp_path, capsys):
+    """Máscara deslocada (outra câmera/resolução) → importação recusada com mensagem clara."""
+    d = tmp_path / "desalinhada"
+    d.mkdir()
+    for f in corona_dir.glob("cam1_*.exr"):
+        (d / f.name).write_bytes(f.read_bytes())
+    m = exr_io.read_exr(corona_dir / "cam1_masks_a.exr")[..., :3]
+    exr_io.write_exr(d / "cam1_masks_a.exr", np.roll(m, (40, 70), axis=(0, 1)))
+    args = [str(d), "x", "cam1", "--slot", "r:piso:Piso:floor", "--web-root", str(tmp_path / "pub")]
+    assert import_corona.main(args) == 1
+    assert "não coincide com a geometria" in capsys.readouterr().err
+    assert import_corona.main(args + ["--ignorar-alinhamento"]) == 0

@@ -68,3 +68,18 @@ Problemas encontrados nos EXRs de `renders/cam1`:
 
 Para um render definitivo: modo do CMasking_Mask por nós (ou G-Buffer ID), tone mapping neutro de verdade
 (exposição 0, sem filmic/ACES/LUT, highlight compression 1) e UV_config na ilha.
+
+## Sala de estar (sala_estar / cam7) — 2026-10-20
+
+Renders em `renders/sala_estar` (3840×2160). Problemas:
+- `masks_a/b/c.exr` **pretas** de novo (CMasking_Mask sem objetos efetivos no modo atual).
+- A máscara substituta `renders/sala_estar/masks_a.png` **não é desta câmera**: só 39% (piso) e 49% (sofá)
+  da borda coincidem com bordas da geometria (máscaras corretas: 78–98%). Resultado na tela: madeira sobre
+  a base do sofá e a mesa de centro.
+- `uv.exr` **cortado em [0, 1]** (p99 = 1,0 exato): escala de textura e áreas erradas (catálogo com
+  `uv_range` [0,0,1,1] e área 0 m²).
+- Todos os passes ≤ 0,99 (clamp/tone mapping) e `diff_color` constante ≈ 0,78 (material override "clay").
+
+O importador agora mede o alinhamento máscara × geometria (`mask_alignment`: fração da borda do slot que
+cai num SALTO do UV) e recusa abaixo de 60% (`--ignorar-alinhamento` para forçar), avisa abaixo de 75%,
+e avisa quando o UV vem cortado em 1,0.
