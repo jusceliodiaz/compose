@@ -42,7 +42,7 @@ def test_import_corona_gera_catalogo_valido(corona_dir, tmp_path, capsys):
     assert rc == 0, out
     cam = public / "assets/scenes/sala/cam1"
     for f in ["beauty.webp", "beauty.exr", "diff_light.exr", "glossy.exr", "uv_hi.png", "uv_lo.png",
-              "uv_meta.json", "masks_a.png", "lg_sol.exr", "lg_teto.exr", "thumb_original_piso.webp"]:
+              "uv_meta.json", "masks_0.png", "lg_sol.exr", "lg_teto.exr", "thumb_original_piso.webp"]:
         assert (cam / f).is_file(), f
     assert not (cam / "lg_vazio.exr").exists()          # grupo vazio é ignorado
     assert "reconstrução" in out and "ok" in out
@@ -124,3 +124,29 @@ def test_import_corona_recusa_mascara_desalinhada(corona_dir, tmp_path, capsys):
     assert import_corona.main(args) == 1
     assert "não coincide com a geometria" in capsys.readouterr().err
     assert import_corona.main(args + ["--ignorar-alinhamento"]) == 0
+
+
+def test_import_corona_reempacota_mascaras_de_varios_arquivos(corona_dir, tmp_path):
+    """Um objeto por arquivo (masks_a, masks_b…, como no render da sala) → PNGs da web com 3 slots cada."""
+    d = tmp_path / "multi"
+    d.mkdir()
+    for f in corona_dir.glob("cam1_*.exr"):
+        if "masks" not in f.name:
+            (d / f.name).write_bytes(f.read_bytes())
+    m = exr_io.read_exr(corona_dir / "cam1_masks_a.exr")[..., 0]
+    h, w = m.shape
+    left = m * (np.arange(w)[None, :] < w // 2)
+    right = m * (np.arange(w)[None, :] >= w // 2)
+    for name, part in [("a", left), ("b", right)]:
+        exr_io.write_exr(d / f"cam1_masks_{name}.exr", np.repeat(part[..., None], 3, -1).astype(np.float32))
+    pub = tmp_path / "pub"
+    rc = import_corona.main([str(d), "m", "cam1", "--slot", "masks_a.r:esq:Esquerda:floor",
+                             "--slot", "masks_b.r:dir:Direita:rug", "--web-root", str(pub), "--ignorar-alinhamento"])
+    assert rc == 0
+    cat = json.loads((pub / "assets/catalog/m.json").read_text(encoding="utf-8"))
+    assert cat["base_passes"]["masks_packed"] == [
+        {"file": "assets/scenes/m/cam1/masks_0.png", "channels": {"r": "esq", "g": "dir"}}]
+    refs = {s["id"]: s["mask_ref"] for s in cat["configurable_slots"]}
+    assert refs == {"esq": {"file": 0, "channel": "r"}, "dir": {"file": 0, "channel": "g"}}
+    png = exr_io.read_png(pub / "assets/scenes/m/cam1/masks_0.png")
+    assert (png[..., 0] > 127).sum() == (left > 0.5).sum() and (png[..., 1] > 127).sum() == (right > 0.5).sum()

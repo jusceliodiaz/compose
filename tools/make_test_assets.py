@@ -203,11 +203,41 @@ def make_concrete(px: int = 1024, seed: int = 23) -> np.ndarray:
     return exr_io.to_u8(exr_io.linear_to_srgb(col))
 
 
+def make_linen(px: int = 1024, seed: int = 31) -> np.ndarray:
+    """Tecido de linho (trama tela), quase neutro para receber tonalidades; cobre 0,5 × 0,5 m."""
+    yy, xx = np.mgrid[0:px, 0:px].astype(np.float64) / px
+    n = 160                                                     # fios por tile (inteiro → sem emenda)
+    warp = 0.5 + 0.5 * np.cos(2 * np.pi * n * xx)
+    weft = 0.5 + 0.5 * np.cos(2 * np.pi * n * yy)
+    over = ((np.floor(n * xx) + np.floor(n * yy)) % 2) == 0
+    weave = np.where(over, warp, weft)
+    slub_x = periodic_noise(px, px, 1.4, seed, stretch=(1.0, 25.0))   # irregularidade ao longo dos fios
+    slub_y = periodic_noise(px, px, 1.4, seed + 1, stretch=(25.0, 1.0))
+    mottle = periodic_noise(px, px, 2.0, seed + 2)
+    lum = 0.50 * (0.82 + 0.18 * weave) * (1 + 0.07 * np.where(over, slub_x, slub_y)) * (1 + 0.04 * mottle)
+    col = lum[..., None] * np.array([1.0, 0.985, 0.95])
+    return exr_io.to_u8(exr_io.linear_to_srgb(col))
+
+
+def make_rug(px: int = 1024, seed: int = 41) -> np.ndarray:
+    """Tapete de lã em laçadas, quase neutro; cobre 1,0 × 1,0 m."""
+    yy, xx = np.mgrid[0:px, 0:px].astype(np.float64) / px
+    loops = 0.5 + 0.5 * np.cos(2 * np.pi * 120 * xx) * np.cos(2 * np.pi * 120 * yy)
+    fuzz = periodic_noise(px, px, 0.6, seed)
+    tone = periodic_noise(px, px, 2.2, seed + 1)
+    stripes = 0.5 + 0.5 * np.cos(2 * np.pi * 8 * yy + 0.6 * periodic_noise(px, px, 2.0, seed + 2))
+    lum = 0.46 * (0.86 + 0.10 * loops + 0.05 * fuzz) * (1 + 0.05 * tone) * (0.95 + 0.05 * stripes)
+    col = lum[..., None] * np.array([1.0, 0.98, 0.94])
+    return exr_io.to_u8(exr_io.linear_to_srgb(col))
+
+
 MATERIALS = {
     # id: (função, tamanho real em metros [u, v])
     "oak": (make_wood, (2.4, 1.2)),
     "marble": (make_marble, (1.2, 1.2)),
     "concrete": (make_concrete, (1.0, 1.0)),
+    "linen": (make_linen, (0.5, 0.5)),
+    "rug": (make_rug, (1.0, 1.0)),
 }
 
 

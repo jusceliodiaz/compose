@@ -43,7 +43,11 @@ from catalog_index import update_index
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = ["beauty", "diff_light", "uv", "masks_a"]
-OPTIONAL = ["diff_color", "reflect", "refract", "transl", "emission", "sss", "volum", "masks_b", "masks_c"]
+MASK_NAMES = ("masks_a", "masks_b", "masks_c", "masks_d", "masks_e", "masks_f")
+OPTIONAL = ["diff_color", "reflect", "refract", "transl", "emission", "sss", "volum", *MASK_NAMES[1:]]
+KINDS = ("floor", "stone", "paint", "fabric", "rug", "cabinet")
+MAX_SLOTS = 5   # limite do motor web: 16 texturas no shader (ver composite.frag.glsl)
+GLOSS_KEEP = {"floor": 0.6, "stone": 0.8, "paint": 0.15, "fabric": 0.1, "rug": 0.05, "cabinet": 0.5}
 EXTRA_COMPONENTS = ["refract", "transl", "emission", "sss", "volum"]
 
 
@@ -64,7 +68,9 @@ DEFAULT_SLOTS = [
 
 
 def parse_slot(s: str) -> SlotSpec:
-    """Formato: [masks_b.]canal:id:Nome:tipo  (ex.: r:piso:Piso:floor, masks_b.g:assento:Assento:stone)"""
+    """Formato: [masks_x.]canal:id:Nome:tipo  (ex.: r:piso:Piso:floor, masks_b.g:assento:Assento:fabric)
+
+    Tipos: floor (piso), stone (pedra), paint (tinta), fabric (tecido), rug (tapete), cabinet (marcenaria)."""
     parts = s.split(":")
     if len(parts) != 4:
         raise argparse.ArgumentTypeError(f"--slot espera canal:id:Nome:tipo, recebi '{s}'")
@@ -72,8 +78,9 @@ def parse_slot(s: str) -> SlotSpec:
     mask = "masks_a"
     if "." in ch:
         mask, ch = ch.split(".", 1)
-    if ch not in ("r", "g", "b") or kind not in ("floor", "stone", "paint"):
-        raise argparse.ArgumentTypeError(f"--slot inválido: '{s}' (canal r/g/b; tipo floor/stone/paint)")
+    if ch not in ("r", "g", "b") or kind not in KINDS or mask not in MASK_NAMES:
+        raise argparse.ArgumentTypeError(
+            f"--slot inválido: '{s}' (máscara masks_a…masks_f; canal r/g/b; tipo {'/'.join(KINDS)})")
     return SlotSpec(mask, ch, sid, name, kind)
 
 
@@ -91,6 +98,15 @@ PAINTS = [
     ("terracota", "Terracota", "#B5704F"),
     ("petroleo", "Azul petróleo", "#2F5662"),
     ("grafite", "Grafite", "#4B4A48"),
+]
+
+
+LACQUERS = [
+    ("laca_branca", "Laca branca", "#F1F0EC"),
+    ("off_white", "Off-white", "#E4DDD0"),
+    ("verde_oliva", "Verde oliva", "#6F7350"),
+    ("azul_petroleo", "Azul petróleo", "#2E4F58"),
+    ("grafite", "Grafite", "#3D3C3A"),
 ]
 
 
@@ -119,15 +135,33 @@ def library(kind: str) -> list[dict]:
                                   {"id": "areia", "name": "Areia", "tint": [1.25, 1.12, 0.92]}])
     checker = tex("checker", "Grade de teste", (1.0, 1.0), None, is_test=True, finish="1 tile = 1 m · célula = 10 cm")
 
+    def tones(*items):
+        return [{"id": i, "name": n, "tint": t} for i, n, t in items]
+
+    linen = tex("linen", "Linho", (0.5, 0.5), 149.9, sku="TEC-LINHO-01", finish="Tecido · trama tela",
+                tint_variants=tones(("areia", "Areia", [1.0, 0.88, 0.70]), ("cinza", "Cinza", [0.72, 0.72, 0.72]),
+                                    ("oliva", "Oliva", [0.58, 0.60, 0.40]), ("terracota", "Terracota", [0.95, 0.52, 0.36]),
+                                    ("grafite", "Grafite", [0.30, 0.30, 0.31])))
+    rug = tex("rug", "Lã em laçadas", (1.0, 1.0), 220.0, sku="TAP-LA-01", finish="Tapete · lã natural",
+              tint_variants=tones(("cru", "Cru", [1.0, 0.94, 0.84]), ("cinza", "Cinza", [0.70, 0.70, 0.70]),
+                                  ("caramelo", "Caramelo", [0.92, 0.68, 0.44]), ("musgo", "Musgo", [0.55, 0.58, 0.42])))
+
+    def solids(items, finish, gloss, price, sku):
+        return [{"id": pid, "name": name, "albedo_color": _hex_to_linear(hx), "finish": f"{finish} · {hx}",
+                 "gloss_keep": gloss, "price": {"value": price, "unit": "m2", "currency": "BRL"},
+                 "sku": f"{sku}-{pid.upper()}"} for pid, name, hx in items]
+
     if kind == "floor":
         return [oak, marble, concrete, checker]
     if kind == "stone":
         return [marble, concrete, checker]
-    return [
-        {"id": pid, "name": name, "albedo_color": _hex_to_linear(hx), "finish": f"Tinta acrílica fosca · {hx}",
-         "gloss_keep": 0.15, "price": {"value": 38.0, "unit": "m2", "currency": "BRL"}, "sku": f"TINTA-{pid.upper()}"}
-        for pid, name, hx in PAINTS
-    ] + [checker]
+    if kind == "fabric":
+        return [linen, checker]
+    if kind == "rug":
+        return [rug, linen, checker]
+    if kind == "cabinet":
+        return [oak, *solids(LACQUERS, "Laca semibrilho", 0.5, 420.0, "LACA"), checker]
+    return [*solids(PAINTS, "Tinta acrílica fosca", 0.15, 38.0, "TINTA"), checker]
 
 
 # --- Utilitários ----------------------------------------------------------------------
@@ -147,6 +181,14 @@ def find_passes(folder: Path, prefix: str) -> tuple[dict[str, Path], dict[str, P
             found[name] = cands[0]
         elif len(cands) > 1:
             raise ValueError(f"vários arquivos para '{name}': {[c.name for c in cands]} — use --prefix")
+    if "beauty" not in found:
+        # saída principal do 3ds Max sem nome de elemento: "cam7_.exr" quando o prefixo é "cam7__"
+        base = prefix.rstrip("_.-")
+        for cand in (base, base + "_", base + "."):
+            f = folder / f"{cand}.exr"
+            if f.is_file():
+                found["beauty"] = f
+                break
     lgs: dict[str, Path] = {}
     for f in files:
         m = re.search(r"(?:^|[_.\-])lg_([a-z0-9]+)$", f.stem, re.I)
@@ -283,13 +325,8 @@ def run(args: argparse.Namespace) -> int:
         return 1
     h, w = img["beauty"].shape[:2]
 
-    # 2. máscaras → PNG RGB 8-bit (3 slots por arquivo)
-    mask_files = [m for m in ("masks_a", "masks_b", "masks_c") if m in img]
-    masks_f: dict[str, np.ndarray] = {}
-    for m in mask_files:
-        mf = np.clip(rgb(img[m]), 0.0, 1.0)
-        masks_f[m] = mf
-        exr_io.write_png(dest / f"{m}.png", exr_io.to_u8(mf))
+    # 2. máscaras do render (cada masks_x pode ter 1 a 3 objetos) → slots
+    masks_f: dict[str, np.ndarray] = {m: np.clip(rgb(img[m]), 0.0, 1.0) for m in MASK_NAMES if m in img}
 
     slots = [s for s in args.slot if s.mask in masks_f
              and (masks_f[s.mask][..., "rgb".index(s.channel)] > 0.5).mean() >= 0.0005]
@@ -307,6 +344,24 @@ def run(args: argparse.Namespace) -> int:
         print("ERRO: nenhum slot com máscara. O masks_a veio preto? (CMasking_Mask: confira o modo e os objetos)",
               file=sys.stderr)
         return 1
+    if len(slots) > MAX_SLOTS:
+        print(f"ERRO: {len(slots)} superfícies; o configurador aceita até {MAX_SLOTS} por câmera "
+              f"({[s.id for s in slots]}). Escolha as principais com --slot.", file=sys.stderr)
+        return 1
+    # reempacota para a web: 3 slots por PNG (R, G, B), na ordem dos --slot
+    packed: list[dict] = []
+    slot_ref: dict[str, tuple[int, str]] = {}
+    for i in range(0, len(slots), 3):
+        group = slots[i:i + 3]
+        rgb_mask = np.zeros((h, w, 3), np.float32)
+        channels = {}
+        for ch, s in zip("rgb", group):
+            rgb_mask[..., "rgb".index(ch)] = slot_mask[s.id]
+            channels[ch] = s.id
+            slot_ref[s.id] = (len(packed), ch)
+        name = f"masks_{len(packed)}.png"
+        exr_io.write_png(dest / name, exr_io.to_u8(rgb_mask))
+        packed.append({"file": f"{rel_cam}/{name}", "channels": channels})
 
     # 2b. a máscara precisa coincidir com a geometria desta câmera
     uv = img["uv"]
@@ -411,17 +466,8 @@ def run(args: argparse.Namespace) -> int:
 
     # 7. miniaturas "Original" e áreas
     areas: dict[str, float] = dict(args.area)
-    used_masks = [m for m in mask_files if any(s.mask == m for s in slots)]
-    if not used_masks:
-        used_masks = mask_files[:1]
-    if len(used_masks) > 2:
-        print("aviso: limitando a 2 arquivos de máscara para o WebGL (máximo suportado pelo shader)")
-        used_masks = used_masks[:2]
-
     slots_json = []
     for s in slots:
-        if s.mask not in used_masks:
-            continue
         original_thumb(ldr, slot_mask[s.id], dest / f"thumb_original_{s.id}.webp")
         if s.id not in areas:
             areas[s.id] = round(visible_area_m2(uv, slot_mask[s.id]), 2)
@@ -431,10 +477,10 @@ def run(args: argparse.Namespace) -> int:
         slots_json.append({
             "id": s.id,
             "name": s.name,
-            "mask_ref": {"file": used_masks.index(s.mask), "channel": s.channel},
+            "mask_ref": {"file": slot_ref[s.id][0], "channel": slot_ref[s.id][1]},
             "default_texture": "original",
             "allow_user_transform": {"scale": [0.5, 2.0], "rotation": s.kind != "paint", "offset": s.kind != "paint"},
-            "gloss_keep": {"floor": 0.6, "stone": 0.8, "paint": 0.15}[s.kind],
+            "gloss_keep": GLOSS_KEEP[s.kind],
             "area_m2": areas[s.id],
             "options": [original, *library(s.kind)],
         })
@@ -456,10 +502,7 @@ def run(args: argparse.Namespace) -> int:
             "uv_range": uv_range,
             "diffuse_light": f"{rel_cam}/diff_light.exr",
             **({"glossy": f"{rel_cam}/glossy.exr"} if use_glossy else {}),
-            "masks_packed": [
-                {"file": f"{rel_cam}/{m}.png", "channels": {s.channel: s.id for s in slots if s.mask == m}}
-                for m in used_masks
-            ],
+            "masks_packed": packed,
         },
         "light_groups": [
             {"id": g, "name": args.lg_name.get(g, g.replace("_", " ").capitalize()), "pass": f"{rel_cam}/lg_{g}.exr",
@@ -475,9 +518,10 @@ def run(args: argparse.Namespace) -> int:
     update_index(cat_dir, args.project_id, catalog["project_name"], make_default=args.default)
     print(f"── catálogo: {cat_path}")
 
-    if not (cat_dir.parent / "materials" / "oak" / "albedo.webp").is_file():
-        import make_test_assets
-        make_test_assets.write_materials(cat_dir.parent / "materials")
+    import make_test_assets
+    mat_dir = cat_dir.parent / "materials"
+    if any(not (mat_dir / mid / "albedo.webp").is_file() for mid in make_test_assets.MATERIALS):
+        make_test_assets.write_materials(mat_dir)
         print("   materiais da biblioteca gerados em assets/materials")
 
     chk = validate_catalog.validate(catalog, public)

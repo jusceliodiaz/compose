@@ -63,7 +63,7 @@ interface SlotState {
 
 const TONE_OPS = { standard: 0, aces: 1, agx: 2, lut: 3 } as const;
 const LUT_SIZE = 128;
-const MAX_SLOTS = 3;
+const MAX_SLOTS = 5;
 const MAX_LG = 4;
 
 export type ProgressFn = (loaded: number, total: number) => void;
@@ -106,11 +106,11 @@ export class Compositor {
       depthWrite: false,
       uniforms: {
         u_beauty: u(this.black), u_diffLight: u(this.black), u_glossy: u(this.black),
-        u_shadowAO: u(this.black), u_hasDiffLight: u(true), u_fallbackLight: u(new THREE.Vector3(1, 1, 1)),
+        u_hasDiffLight: u(true), u_fallbackLight: u(new THREE.Vector3(1, 1, 1)),
         u_uvHi: u(this.black), u_uvLo: u(this.black), u_uvMode: u(0), u_uvRange: u(new THREE.Vector4(0, 0, 1, 1)),
         u_mask0: u(this.black), u_mask1: u(this.black),
         u_slotCount: u(0),
-        u_albedo0: u(this.white), u_albedo1: u(this.white), u_albedo2: u(this.white),
+        u_albedo0: u(this.white), u_albedo1: u(this.white), u_albedo2: u(this.white), u_albedo3: u(this.white), u_albedo4: u(this.white),
         u_tint: u(Array.from({ length: MAX_SLOTS }, () => new THREE.Vector3(1, 1, 1))),
         u_tiling: u(Array.from({ length: MAX_SLOTS }, () => new THREE.Vector2(1, 1))),
         u_rotation: u(new Array<number>(MAX_SLOTS).fill(0)),
@@ -201,8 +201,8 @@ export class Compositor {
     const U = this.material.uniforms;
     U.u_beauty!.value = p.beauty;
     U.u_diffLight!.value = p.diffLight ?? this.black;
-    U.u_glossy!.value = p.glossy ?? this.black;
-    U.u_shadowAO!.value = p.shadowAO ?? this.black;
+    // sem diffLight (modo simplificado) o glossy não é usado: o encaixe dele recebe o shadow_ao
+    U.u_glossy!.value = p.diffLight ? (p.glossy ?? this.black) : (p.shadowAO ?? this.black);
     U.u_hasDiffLight!.value = p.diffLight !== null;
     (U.u_fallbackLight!.value as THREE.Vector3).fromArray(p.fallbackLight);
     U.u_uvHi!.value = p.uvHi;

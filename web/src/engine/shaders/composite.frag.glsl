@@ -10,8 +10,7 @@ out vec4 fragColor;
 // --- Passes da câmera ---------------------------------------------------------------
 uniform sampler2D u_beauty;      // linear (EXR) — fundo
 uniform sampler2D u_diffLight;   // luz difusa sem cor (linear)
-uniform sampler2D u_glossy;      // reflexo (linear)
-uniform sampler2D u_shadowAO;    // fallback "modo simplificado" (dado, NoColorSpace)
+uniform sampler2D u_glossy;      // reflexo (linear); no modo simplificado (sem diffLight) recebe o shadow_ao
 uniform bool      u_hasDiffLight;
 uniform vec3      u_fallbackLight; // cor média do beauty (modo simplificado)
 
@@ -23,18 +22,22 @@ uniform vec4      u_uvRange;     // (uMin, vMin, uMax, vMax) em metros
 uniform sampler2D u_mask0;       // até 3 slots por arquivo (R, G, B)
 uniform sampler2D u_mask1;
 
-// --- Slots (até 3, num único passe) ----------------------------------------------------
+// --- Slots (até 5, num único passe) ----------------------------------------------------
+// Orçamento de texturas: 7 passes + 4 grupos de luz + 5 albedos = 16, o mínimo garantido
+// pelo WebGL2 (MAX_TEXTURE_IMAGE_UNITS). Por isso o AO do modo simplificado usa o encaixe do glossy.
 uniform int       u_slotCount;
 uniform sampler2D u_albedo0;     // sRGB → linear na leitura, REPEAT, mipmaps, anisotropia
 uniform sampler2D u_albedo1;
 uniform sampler2D u_albedo2;
-uniform vec3  u_tint[3];
-uniform vec2  u_tiling[3];       // S = 1 / tamanho real (m)
-uniform float u_rotation[3];     // radianos
-uniform vec2  u_offset[3];       // em tiles
-uniform float u_glossKeep[3];
-uniform vec3  u_slotSelect[3];   // one-hot do canal na máscara
-uniform float u_slotMaskFile[3]; // 0 → u_mask0, 1 → u_mask1
+uniform sampler2D u_albedo3;
+uniform sampler2D u_albedo4;
+uniform vec3  u_tint[5];
+uniform vec2  u_tiling[5];       // S = 1 / tamanho real (m)
+uniform float u_rotation[5];     // radianos
+uniform vec2  u_offset[5];       // em tiles
+uniform float u_glossKeep[5];
+uniform vec3  u_slotSelect[5];   // one-hot do canal na máscara
+uniform float u_slotMaskFile[5]; // 0 → u_mask0, 1 → u_mask1
 uniform float u_seamThreshold;
 
 // --- LightMix (até 4 grupos, método da razão) ----------------------------------------
@@ -147,7 +150,7 @@ vec3 sampleAlbedo(sampler2D albedoTex, int i, vec2 uv, vec2 duvdx, vec2 duvdy) {
 // Reilumina o material com a luz calculada pelo renderizador offline.
 vec3 relight(vec3 albedo, int i, vec3 diffLight, vec3 glossy) {
     if (u_hasDiffLight) return albedo * diffLight + glossy * u_glossKeep[i];
-    return albedo * texture(u_shadowAO, vUv).r * u_fallbackLight;
+    return albedo * texture(u_glossy, vUv).r * u_fallbackLight;   // aqui u_glossy = shadow_ao
 }
 
 void main() {
@@ -219,7 +222,20 @@ void main() {
             hdr = mix(hdr, u_lightMixOn ? s * ratio : s, k);
         }
     }
-
+    if (u_slotCount > 3) {
+        float k = slotMask(3, m0, m1);
+        if (k > 0.001) {
+            vec3 s = relight(sampleAlbedo(u_albedo3, 3, uv, duvdx, duvdy), 3, diffLight, glossy);
+            hdr = mix(hdr, u_lightMixOn ? s * ratio : s, k);
+        }
+    }
+    if (u_slotCount > 4) {
+        float k = slotMask(4, m0, m1);
+        if (k > 0.001) {
+            vec3 s = relight(sampleAlbedo(u_albedo4, 4, uv, duvdx, duvdy), 4, diffLight, glossy);
+            hdr = mix(hdr, u_lightMixOn ? s * ratio : s, k);
+        }
+    }
     // comparador antes/depois: o "antes" é o render original sem nenhuma alteração
     if (vUv.x < u_splitX) hdr = beauty;
 

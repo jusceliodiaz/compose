@@ -169,7 +169,7 @@ export class CatalogError extends Error {
   }
 }
 
-export const MAX_SLOTS = 3;
+export const MAX_SLOTS = 5;
 export const MAX_LIGHT_GROUPS = 4;
 export const DEFAULT_GLOSS_KEEP = 0.6;
 export const MAX_TONE_LUT = 128;
