@@ -255,15 +255,17 @@ void main() {
     // destaque da superfície sob o cursor (em espaço de exibição, depois do tone mapping)
     if (u_hoverSlot >= 0 && u_hoverAmount > 0.0) {
         float k = hoverMask(m0, m1);
+        // contorno fino e suave: fração dos 8 vizinhos (a ~1,2 px) do outro lado da borda
         float edge = 0.0;
         for (int j = 0; j < 8; j++) {
             float a = float(j) * 0.7853982;
-            vec2 o = vec2(cos(a), sin(a)) * screenPx * 2.0;
+            vec2 o = vec2(cos(a), sin(a)) * screenPx * 1.2;
             float kn = hoverMask(texture(u_mask0, vUv + o), texture(u_mask1, vUv + o));
-            edge = max(edge, abs(k - kn));
+            edge += abs(k - kn);
         }
-        outColor = mix(outColor, vec3(1.0), 0.14 * k * u_hoverAmount);        // véu
-        outColor = mix(outColor, vec3(1.0), 0.95 * step(0.5, edge) * u_hoverAmount); // contorno
+        edge = smoothstep(0.0, 4.0, edge);
+        outColor = mix(outColor, vec3(1.0), 0.07 * k * u_hoverAmount);   // véu discreto
+        outColor = mix(outColor, vec3(1.0), 0.75 * edge * u_hoverAmount); // contorno
     }
     fragColor = vec4(outColor, 1.0);
 }
