@@ -1,4 +1,4 @@
-// Palco: barra superior (projeto + ações do render), o render emoldurado, comparador, carregamento e debug.
+// Palco: o render ocupa a janela inteira; marca, projeto e ferramentas flutuam por cima.
 import { DebugMode } from '../engine/Compositor';
 import type { ProjectEntry } from './App';
 import { h, icon, ICONS } from './dom';
@@ -9,6 +9,7 @@ export interface StageActions {
   onCopyLink(): void;
   onDebug(mode: DebugMode): void;
   onProject(id: string): void;
+  onTogglePanel(): void;
 }
 
 export interface StageTitle {
@@ -27,6 +28,9 @@ const DEBUG_MODES: [DebugMode, string][] = [
   [DebugMode.Albedo, 'Albedo'],
 ];
 
+/** Abaixo desta largura a imagem é encaixada (contain) em vez de preencher a janela (cover). */
+const MOBILE = '(max-width: 900px)';
+
 export class Stage {
   readonly el: HTMLElement;
   readonly canvas: HTMLCanvasElement;
@@ -41,6 +45,7 @@ export class Stage {
   private readonly toastEl: HTMLElement;
   private readonly btnCompare: HTMLButtonElement;
   private readonly btnChecker: HTMLButtonElement;
+  private readonly btnPanel: HTMLButtonElement;
   private aspect = 16 / 9;
   private split = 0.5;
   private comparing = false;
@@ -71,29 +76,28 @@ export class Stage {
       { class: 'frame is-loading' },
       this.poster,
       this.canvas,
-      h('span', { class: 'cmp-tag cmp-tag--before' }, 'Antes'),
-      h('span', { class: 'cmp-tag cmp-tag--after' }, 'Depois'),
       this.handle,
-      h('div', { class: 'loader', role: 'status', 'aria-live': 'polite' }, this.progress, this.progressLabel),
     );
     this.well = h('div', { class: 'stage-well' }, this.frame);
 
-    const tool = (ic: string, label: string, shortcut: string, onclick: () => void) =>
+    const tool = (ic: string, label: string, shortcut: string | null, onclick: () => void, pressable = true) =>
       h(
         'button',
-        { class: 'tool', type: 'button', title: `${label} (${shortcut})`, 'aria-pressed': 'false', onclick },
-        icon(ic, 17),
-        h('span', { class: 'tool-label' }, label),
-        h('kbd', { class: 'tool-kbd', 'aria-hidden': 'true' }, shortcut),
+        {
+          class: 'tool',
+          type: 'button',
+          'aria-label': label,
+          'data-tip': shortcut ? `${label} · ${shortcut}` : label,
+          'aria-pressed': pressable ? 'false' : null,
+          onclick,
+        },
+        icon(ic, 18),
       );
     this.btnCompare = tool(ICONS.split, 'Antes / depois', 'C', () => this.setCompare(!this.comparing));
     this.btnChecker = tool(ICONS.checker, 'Grade de teste', 'T', () => actions.onChecker());
-    const btnLink = h(
-      'button',
-      { class: 'tool', type: 'button', title: 'Copiar link da configuração', onclick: () => actions.onCopyLink() },
-      icon(ICONS.link, 17),
-      h('span', { class: 'tool-label' }, 'Copiar link'),
-    );
+    const btnLink = tool(ICONS.link, 'Copiar link', null, () => actions.onCopyLink(), false);
+    this.btnPanel = tool(ICONS.sliders, 'Painel de personalização', 'P', () => actions.onTogglePanel());
+    this.btnPanel.setAttribute('aria-pressed', 'true');
 
     this.memLabel = h('span', { class: 'dbg-mem' });
     const seg = h('div', { class: 'dbg-seg', role: 'radiogroup', 'aria-label': 'Modo de depuração' });
@@ -104,7 +108,7 @@ export class Stage {
     }
     this.debugBar = h(
       'div',
-      { class: 'dbg', hidden: true },
+      { class: 'dbg glass', hidden: true },
       h('span', { class: 'dbg-title' }, icon(ICONS.scan, 15), 'Depuração'),
       seg,
       this.memLabel,
@@ -124,34 +128,36 @@ export class Stage {
               { class: 'project-name project-select', onchange: (e: Event) => actions.onProject((e.target as HTMLSelectElement).value) },
               ...title.projects.map((p) => h('option', { value: p.id, selected: p.id === title.current }, p.name)),
             ),
-            icon(ICONS.chevron, 16),
+            icon(ICONS.chevron, 15),
           )
         : h('h1', { class: 'project-name' }, title.project);
 
     this.el = h(
       'main',
       { class: 'stage' },
+      this.well,
       h(
         'header',
-        { class: 'topbar' },
+        { class: 'hud' },
         h(
           'div',
-          { class: 'topbar-id' },
+          { class: 'hud-id glass' },
           h('span', { class: 'logo', 'aria-hidden': 'true' }, h('span'), h('span')),
-          h('span', { class: 'logo-word' }, 'Compose'),
-          h('span', { class: 'topbar-sep', 'aria-hidden': 'true' }, '/'),
           projectEl,
-          h('span', { class: 'cam-chip' }, icon(ICONS.camera, 14), title.camera),
+          h('span', { class: 'cam-name' }, title.camera),
         ),
-        h('nav', { class: 'tools', 'aria-label': 'Ações do render' }, this.btnCompare, this.btnChecker, btnLink),
+        h('nav', { class: 'tools glass', 'aria-label': 'Ações do render' }, this.btnCompare, this.btnChecker, btnLink, h('span', { class: 'tools-sep', 'aria-hidden': 'true' }), this.btnPanel),
       ),
-      this.well,
+      h('span', { class: 'cmp-tag cmp-tag--before' }, 'Antes'),
+      h('span', { class: 'cmp-tag cmp-tag--after' }, 'Depois'),
+      h('div', { class: 'loader glass', role: 'status', 'aria-live': 'polite' }, this.progressLabel, this.progress),
       this.debugBar,
       this.toastEl,
     );
 
     this.bindCompare();
     new ResizeObserver(() => this.layout()).observe(this.well);
+    window.matchMedia(MOBILE).addEventListener('change', () => this.layout());
   }
 
   setPoster(url: string, width: number, height: number): void {
@@ -161,34 +167,41 @@ export class Stage {
     this.layout();
   }
 
-  /** Encaixa o quadro no espaço disponível mantendo a proporção dos passes. */
+  /**
+   * Desktop: a imagem PREENCHE a janela (cover, as bordas excedentes ficam fora da tela).
+   * Celular: a imagem é ENCAIXADA na largura (contain), com o painel embaixo.
+   */
   layout(): void {
     const r = this.well.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    let w = r.width;
-    let hh = w / this.aspect;
-    if (hh > r.height) {
-      hh = r.height;
-      w = hh * this.aspect;
-    }
-    this.frame.style.width = `${Math.floor(w)}px`;
-    this.frame.style.height = `${Math.floor(hh)}px`;
-    this.onResize?.(Math.floor(w), Math.floor(hh));
+    const cover = !window.matchMedia(MOBILE).matches;
+    const byWidth = r.width / this.aspect;
+    const fitHeight = cover ? byWidth < r.height : byWidth > r.height;
+    const w = fitHeight ? r.height * this.aspect : r.width;
+    const hh = fitHeight ? r.height : byWidth;
+    this.frame.style.width = `${Math.round(w)}px`;
+    this.frame.style.height = `${Math.round(hh)}px`;
+    this.onResize?.(Math.round(w), Math.round(hh));
   }
 
   setProgress(loaded: number, total: number): void {
     const pct = total ? (loaded / total) * 100 : 0;
     this.progress.style.setProperty('--pct', `${pct}%`);
-    this.progressLabel.textContent = total ? `Carregando passes ${loaded} de ${total}` : 'Preparando a cena…';
+    this.progressLabel.textContent = total ? `Carregando a cena · ${loaded} de ${total}` : 'Preparando a cena…';
   }
 
   setReady(): void {
     this.frame.classList.remove('is-loading');
     this.frame.classList.add('is-ready');
+    this.el.classList.add('is-ready');
   }
 
   setCheckerActive(on: boolean): void {
     this.btnChecker.setAttribute('aria-pressed', String(on));
+  }
+
+  setPanelOpen(open: boolean): void {
+    this.btnPanel.setAttribute('aria-pressed', String(open));
   }
 
   // --- Comparador ----------------------------------------------------------------
@@ -196,6 +209,7 @@ export class Stage {
   setCompare(on: boolean): void {
     this.comparing = on;
     this.frame.classList.toggle('is-comparing', on);
+    this.el.classList.toggle('is-comparing', on);
     this.btnCompare.setAttribute('aria-pressed', String(on));
     this.applySplit();
   }

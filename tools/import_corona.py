@@ -395,10 +395,19 @@ def run(args: argparse.Namespace) -> int:
 
     # 4. tone map + exposição → beauty.webp
     beauty = rgb(img["beauty"])
+    # Passes com tone mapping ("display-referred"): beauty ≤ 1, ou quase (≤ 1,25, highlights de curva fílmica)
+    # E os componentes não reconstroem o beauty — um render linear de verdade passa de 40 dB.
+    bmax = float(np.percentile(exr_io.luminance(beauty), 99.9))
     display_referred = float(beauty.max()) <= 1.001
+    if not display_referred and bmax <= 1.25 and "diff_color" in img:
+        adds0 = [rgb(img[n]) for n in ["reflect", *EXTRA_COMPONENTS] if n in img]
+        psnr0 = reconstruct_check.compare(
+            beauty, reconstruct_check.reconstruct([[rgb(img["diff_color"]), rgb(img["diff_light"])]], adds0)).psnr
+        display_referred = psnr0 < 25
     if display_referred:
-        print("aviso: o beauty não passa de 1.0 — parece já ter tone mapping do Corona (o EXR deveria ser linear, sem")
-        print("       tone mapping). Usando tone 'standard' e exposição 1 para não aplicar a curva duas vezes.")
+        print("aviso: os passes parecem já ter tone mapping do Corona (beauty ≈ 0–1 e a reconstrução não fecha). O EXR")
+        print("       deveria ser linear, sem tone mapping. Usando tone 'standard' e exposição 1 para não aplicar a curva")
+        print("       duas vezes; use --light-from-beauty para reconstruir a curva.")
         args.tone = "standard"
         if args.exposure == "auto":
             args.exposure = "1"
@@ -418,7 +427,7 @@ def run(args: argparse.Namespace) -> int:
         # Reconstrói a curva do Corona e volta os passes para um espaço linear (ver tools/tone_curve.py)
         dc_all = rgb(img["diff_color"])
         curve = None
-        if "diff_light" in img and float(rgb(img["diff_light"]).max()) <= 1.001:
+        if "diff_light" in img and float(np.percentile(exr_io.luminance(rgb(img["diff_light"])), 99.9)) <= 1.25:
             # o diff_light também veio com a curva: T⁻¹(beauty) = albedo · T⁻¹(diff_light), na imagem toda
             curve = tone_curve.fit_from_light(beauty, dc_all, rgb(img["diff_light"]),
                                               rgb(img["reflect"]) if "reflect" in img else None)

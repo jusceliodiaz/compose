@@ -179,6 +179,7 @@ export class Compositor {
       (U.u_toneLutInfo!.value as THREE.Vector4).set(cam.tone.lut.log2_min, cam.tone.lut.log2_max, cam.tone.lut.low_slope, vals.length);
     }
     U.u_slotCount!.value = Math.min(catalog.slots.length, MAX_SLOTS);
+    if (this.cssSize) this.setSize(...this.cssSize);
 
     this.slots.clear();
     await Promise.all(
@@ -332,9 +333,20 @@ export class Compositor {
     return this.material.uniforms.u_debug!.value as DebugMode;
   }
 
-  /** Ajusta o canvas ao tamanho exibido (CSS px). */
+  private cssSize: Vec2 | null = null;
+
+  /**
+   * Ajusta o canvas ao tamanho exibido (CSS px). A densidade de pixels acompanha a dos passes:
+   * nunca acima de min(devicePixelRatio, 2) e nunca mais pixels do que o render tem (seria só upscale).
+   */
   setSize(cssWidth: number, cssHeight: number): void {
-    this.renderer.setSize(Math.max(1, Math.round(cssWidth)), Math.max(1, Math.round(cssHeight)), false);
+    const w = Math.max(1, Math.round(cssWidth));
+    const h = Math.max(1, Math.round(cssHeight));
+    this.cssSize = [w, h];
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const passW = this.passes?.width ?? w * dpr;
+    this.renderer.setPixelRatio(Math.max(1, Math.min(dpr, passW / w)));
+    this.renderer.setSize(w, h, false);
     this.requestRender();
   }
 

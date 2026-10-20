@@ -171,7 +171,7 @@ export class Panel {
           },
           h('span', { class: 'swatch' }, thumb, on ? h('span', { class: 'swatch-check' }, icon(ICONS.check, 13)) : null),
           h('span', { class: 'mat-name' }, o.name),
-          h('span', { class: 'mat-price' }, o.price ? `${money(o.price.value, o.price.currency)}/m²` : o.keepOriginal ? 'Incluso' : '—'),
+          h('span', { class: 'mat-price', title: o.price ? 'por m²' : undefined }, o.price ? money(o.price.value, o.price.currency) : o.keepOriginal ? 'Incluso' : '—'),
         ),
       );
     }

@@ -78,6 +78,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
         location.search = `?project=${encodeURIComponent(id)}`;
       },
       onSplit: (x) => compositor?.setSplit(x),
+      onTogglePanel: () => togglePanel(),
       onChecker: () => toggleChecker(),
       onCopyLink: () => void copyLink(),
       onDebug: (m) => {
@@ -198,6 +199,13 @@ export async function startApp(root: HTMLElement): Promise<void> {
     stage.setMemory(await compositor.gpuMemoryMB(), compositor.renders);
   }
 
+  function togglePanel(force?: boolean): void {
+    const open = force ?? panel.el.classList.contains('is-hidden');
+    panel.el.classList.toggle('is-hidden', !open);
+    document.getElementById('app')?.classList.toggle('panel-hidden', !open);
+    stage.setPanelOpen(open);
+  }
+
   // --- Atalhos ---------------------------------------------------------------------
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -207,6 +215,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
     if (k === 'd') stage.toggleDebug();
     else if (k === 'c') stage.setCompare(!stage.isComparing);
     else if (k === 't') toggleChecker();
+    else if (k === 'p') togglePanel();
     else if (k === 'escape') stage.toggleDebug(false);
   });
 
