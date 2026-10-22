@@ -112,6 +112,8 @@ export async function startApp(root: HTMLElement): Promise<void> {
     preload: (_slot, o) => compositor?.preload(o),
     onExport: () => void doExport(),
     onSurfaceHover: (id) => compositor?.setHover(id),
+    onReveal: () => togglePanel(true),
+    onClose: () => togglePanel(false),
   });
   let picker: Picker | null = null;
 
@@ -134,7 +136,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
     },
     onClose: () => compositor?.setHover(null),
   });
-  stage.el.append(quick.el);
+  stage.el.append(panel.dock, quick.el);
   root.replaceChildren(stage.el, panel.el);
   stage.setPoster(cam.passes.beautyDisplay, cam.viewResolution[0], cam.viewResolution[1]);
 

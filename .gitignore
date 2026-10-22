@@ -8,3 +8,6 @@ web/public/assets/scenes/
 web/public/assets/materials/
 web/public/assets/catalog/*.json
 tools/.cache/
+
+# cenas do 3ds Max (pesadas, fora do git)
+*.max

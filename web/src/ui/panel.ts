@@ -1,4 +1,5 @@
-// Painel: superfícies (topo fixo) → acabamento → ajustar textura / iluminação (recolhíveis) → total + export (rodapé fixo).
+// Painel: janela flutuante compacta (design system do Amalfi). Cabeçalho com a superfície atual → acabamentos →
+// ajustar textura / iluminação (recolhíveis) → total + export. As superfícies ficam num dock embaixo da imagem.
 import type { MaterialOption, NormalizedCatalog, Slot } from '../catalog/schema';
 import { budget, type ConfigState, type Store } from '../state/store';
 import { EV_RANGE, kelvinBounds } from '../state/urlState';
@@ -12,17 +13,24 @@ export interface PanelEvents {
   /** Pré-carrega o albedo ao passar o mouse/focar a miniatura. */
   preload(slotId: string, option: MaterialOption): void;
   onExport(): void;
+  /** Clique numa superfície do dock: a janela deve abrir. */
+  onReveal?(): void;
+  /** Botão × da janela (ou clique de novo na superfície ativa). */
+  onClose?(): void;
 }
 
 const srgb = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
 const linToCss = (c: readonly number[]) =>
   `rgb(${c.map((x) => Math.round(Math.min(1, Math.max(0, srgb(x))) * 255)).join(' ')})`;
+const two = (n: number) => String(n).padStart(2, '0');
 const fmtEv = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${num(Math.abs(v), 1)} EV`;
 
 type Updater = (s: ConfigState) => void;
 
 export class Panel {
   readonly el: HTMLElement;
+  /** Dock de superfícies (fica no palco, fora da janela). */
+  readonly dock: HTMLElement;
   private activeSlot: string;
   private readonly head: HTMLElement;
   private readonly body: HTMLElement;
@@ -39,11 +47,12 @@ export class Panel {
   ) {
     this.activeSlot = catalog.slots[0]?.id ?? '';
     this.head = h('div', { class: 'panel-head' });
+    this.dock = h('nav', { class: 'dock', role: 'tablist', 'aria-label': 'Superfícies' });
     this.body = h('div', { class: 'panel-body', id: 'panel-body' });
     this.exportBtn = h(
       'button',
-      { class: 'btn btn--primary btn--block', type: 'button', onclick: () => events.onExport() },
-      icon(ICONS.download, 18),
+      { class: 'btn btn--primary', type: 'button', onclick: () => events.onExport() },
+      icon(ICONS.download, 17),
       h('span', { class: 'btn-label' }, 'Baixar imagem'),
     );
     const sheetToggle = h(
@@ -108,7 +117,8 @@ export class Panel {
     const scroll = this.body.scrollTop;
     this.updaters = [];
     const st = this.store.get();
-    this.head.replaceChildren(this.surfaces());
+    this.head.replaceChildren(this.header());
+    this.surfaces();
     this.body.replaceChildren(this.finishes(st), this.transform(st), this.lights(st));
     this.updaters.forEach((u) => u(st));
     this.body.scrollTop = scroll;
@@ -128,33 +138,58 @@ export class Panel {
     return det;
   }
 
-  // --- Superfícies (slots) -------------------------------------------------------
+  // --- Cabeçalho: superfície atual + fechar --------------------------------------
 
-  private surfaces(): HTMLElement {
-    const tabs = h('div', { class: 'surfaces', role: 'tablist', 'aria-label': 'Superfícies' });
-    for (const s of this.catalog.slots) {
-      const on = s.id === this.activeSlot;
-      tabs.append(
-        h(
+  private header(): HTMLElement {
+    const slots = this.catalog.slots;
+    const i = slots.findIndex((s) => s.id === this.activeSlot);
+    const slot = this.slot;
+    const meta = [slot.areaM2 !== null ? `${num(slot.areaM2, 1)} m²` : null, `${slot.options.filter((o) => !o.isTest).length} acabamentos`]
+      .filter(Boolean)
+      .join(' · ');
+    return h(
+      'div',
+      { class: 'panel-top' },
+      h(
+        'div',
+        { class: 'panel-id' },
+        h('p', { class: 'eyebrow' }, slots.length > 1 ? `Superfície ${two(i + 1)} / ${two(slots.length)}` : 'Superfície'),
+        h('h2', { class: 'panel-title' }, slot.name),
+        h('p', { class: 'panel-meta' }, meta),
+      ),
+      this.events.onClose
+        ? h('button', { class: 'panel-close', type: 'button', 'aria-label': 'Fechar personalização', onclick: () => this.events.onClose?.() }, icon(ICONS.close, 16))
+        : null,
+    );
+  }
+
+  // --- Dock de superfícies (embaixo da imagem) ----------------------------------------
+
+  private surfaces(): void {
+    this.dock.replaceChildren(
+      ...this.catalog.slots.map((s) => {
+        const on = s.id === this.activeSlot;
+        return h(
           'button',
           {
-            class: `surface${on ? ' is-active' : ''}`,
+            class: `dock-item${on ? ' is-active' : ''}`,
             role: 'tab',
             type: 'button',
             'aria-selected': String(on),
+            'aria-controls': 'panel-body',
             onclick: () => {
-              this.activeSlot = s.id;
-              this.build();
+              // de novo na superfície ativa com a janela aberta: fecha (como no dock do Amalfi)
+              if (on && !this.el.classList.contains('is-hidden')) return this.events.onClose?.();
+              this.selectSlot(s.id);
+              this.events.onReveal?.();
             },
             onpointerenter: () => this.events.onSurfaceHover?.(s.id),
             onpointerleave: () => this.events.onSurfaceHover?.(null),
           },
-          h('span', { class: 'surface-name' }, s.name),
-          s.areaM2 !== null ? h('span', { class: 'surface-meta' }, `${num(s.areaM2, 1)} m²`) : null,
-        ),
-      );
-    }
-    return h('div', {}, h('p', { class: 'eyebrow' }, 'Superfície'), tabs);
+          h('span', { class: 'dock-name' }, s.name),
+        );
+      }),
+    );
   }
 
   // --- Acabamento ----------------------------------------------------------------
@@ -179,6 +214,7 @@ export class Panel {
             type: 'button',
             role: 'radio',
             'aria-checked': String(on),
+            title: o.price ? `${o.name} · ${money(o.price.value, o.price.currency)}/m²` : o.name,
             onclick: () => this.store.setSlot(slot.id, { option: o.id, variant: o.tintVariants[0]?.id ?? null }),
             onpointerenter: () => this.events.preload(slot.id, o),
             onfocus: () => this.events.preload(slot.id, o),
@@ -237,7 +273,6 @@ export class Panel {
     return h(
       'section',
       { class: 'block' },
-      h('header', { class: 'block-head' }, h('h2', { class: 'block-title' }, 'Acabamento'), h('span', { class: 'block-meta' }, `${visible.length} opções`)),
       grid,
       detail,
     );
@@ -390,6 +425,7 @@ export class Panel {
   private footer(): HTMLElement {
     const lines = h('div', { class: 'bud-lines' });
     const total = h('strong', { class: 'bud-total-val' });
+    const count = h('span', { class: 'bud-count' });
     this.footUpdaters.push((s) => {
       const b = budget(this.catalog, s);
       lines.replaceChildren(
@@ -405,6 +441,8 @@ export class Panel {
         }),
       );
       total.textContent = money(b.total, b.currency);
+      const n = this.catalog.slots.filter((sl) => s.slots[sl.id]?.option !== sl.defaultOption).length;
+      count.textContent = n ? `${n} ${n === 1 ? 'alterada' : 'alteradas'}` : 'Original';
     });
     return h(
       'footer',
@@ -412,7 +450,12 @@ export class Panel {
       h(
         'details',
         { class: 'bud' },
-        h('summary', { class: 'bud-sum' }, h('span', { class: 'bud-label' }, 'Total estimado', icon(ICONS.chevron, 14)), total),
+        h(
+          'summary',
+          { class: 'bud-sum' },
+          h('span', { class: 'bud-label' }, h('span', {}, 'Total estimado', icon(ICONS.chevron, 13)), count),
+          total,
+        ),
         lines,
         h('p', { class: 'bud-note' }, 'Área × preço por m². Valores de referência.'),
       ),
