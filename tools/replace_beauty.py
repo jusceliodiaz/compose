@@ -140,7 +140,14 @@ def main(argv: list[str] | None = None) -> int:
             import OpenEXR
             part = OpenEXR.File(str(args.image)).parts[0]
             ch = part.channels
-            arr = ch["RGBA"].pixels if "RGBA" in ch else ch["RGB"].pixels
+            if "RGBA" in ch or "RGB" in ch:
+                arr = ch["RGBA"].pixels if "RGBA" in ch else ch["RGB"].pixels
+            else:  # camada única com outro nome (ex.: "cam7__masks_a" salvo pelo Photoshop)
+                arr = next(c.pixels for c in ch.values() if c.pixels.ndim == 3 and c.pixels.shape[2] >= 3)
+            # dataWindow maior que o displayWindow (overscan): recorta para a área visível
+            dw, dsp = part.header["dataWindow"], part.header["displayWindow"]
+            y0, x0 = dsp[0][1] - dw[0][1], dsp[0][0] - dw[0][0]
+            arr = arr[y0:y0 + dsp[1][1] - dsp[0][1] + 1, x0:x0 + dsp[1][0] - dsp[0][0] + 1]
             img_lin = arr[..., :3].astype(np.float32)
         img_lin = np.clip(img_lin, 0.0, None)
         img = exr_io.to_u8(exr_io.linear_to_srgb(np.clip(img_lin, 0, 1)))

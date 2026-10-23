@@ -960,68 +960,37 @@ button:disabled {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
-/* seções recolhíveis */
-.acc {
-  margin-top: 14px;
+/* seções sempre à vista (ajustar textura, iluminação) */
+.sect {
+  margin-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
 }
 
-.acc + .acc {
-  margin-top: 0;
-}
-
-.acc-sum {
+.sect-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 10px;
-  min-height: 46px;
-  list-style: none;
-  cursor: pointer;
-  border-radius: 8px;
+  margin-bottom: 12px;
 }
 
-.acc-sum::-webkit-details-marker {
-  display: none;
-}
-
-.acc-title {
+.sect-title {
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
 }
 
-.acc-meta {
+.sect-meta {
   margin-left: auto;
   font-size: 12px;
   color: var(--ink-3);
   white-space: nowrap;
 }
 
-.acc-chev {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  color: var(--ink-2);
-  transition: transform 0.25s var(--ease), background-color 0.15s var(--ease);
-}
-
-.acc-sum:hover .acc-chev {
-  background: var(--surface-3);
-}
-
-.acc[open] .acc-chev {
-  transform: rotate(180deg);
-}
-
-.acc-body {
+.sect-body {
   display: grid;
   gap: 16px;
-  padding: 2px 0 16px;
-}
-
-.acc[open] .acc-body {
-  animation: drop 0.3s var(--ease) both;
+  padding-bottom: 4px;
 }
 
 .two-col {
@@ -1983,4 +1952,59 @@ button:disabled {
     width: 68px;
     height: 68px;
   }
+}
+
+/* ------------------------------------------------------------ panorama 360° */
+
+.stage.is-pano .frame {
+  cursor: grab;
+  touch-action: none;
+}
+
+.stage.is-pano .frame.is-pickable {
+  cursor: pointer;
+}
+
+.stage.is-pano .frame.is-grabbing {
+  cursor: grabbing;
+}
+
+.stage.is-pano .cmp-handle {
+  cursor: ew-resize;
+}
+
+/* Abas de selecao de projeto / visualizacao (Sala Principal x 360) */
+.project-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 3px;
+}
+.project-tab {
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.project-tab:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+}
+.project-tab--active {
+  background: var(--surface-3, rgba(255, 255, 255, 0.18));
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }

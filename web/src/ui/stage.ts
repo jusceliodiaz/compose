@@ -1,5 +1,6 @@
 // Palco: o render ocupa a janela inteira; marca, projeto e ferramentas flutuam por cima.
 import { DebugMode } from '../engine/Compositor';
+import type { PanoView } from '../engine/panoramaView';
 import type { ProjectEntry } from './App';
 import { h, icon, ICONS } from './dom';
 
@@ -14,6 +15,14 @@ export interface StageActions {
   onHover(u: number, v: number): string | null;
   /** Clique/toque na imagem. (x, y) = posição em px relativa ao palco. */
   onPick(u: number, v: number, touch: boolean, x: number, y: number): void;
+}
+
+/** Vista 360°: o palco lê e muda a direção/zoom (arrastar, roda do mouse, pinça, setas). */
+export interface PanoControl {
+  get(): PanoView;
+  set(v: Partial<PanoView>): void;
+  /** O usuário começou a girar a vista. */
+  onStart?(): void;
 }
 
 export interface StageTitle {
@@ -55,6 +64,9 @@ export class Stage {
   private split = 0.5;
   private comparing = false;
   private toastTimer = 0;
+  private pano: PanoControl | null = null;
+  /** O último gesto girou a vista: o clique que vem junto não seleciona superfície. */
+  private dragged = false;
   onResize: ((w: number, h: number) => void) | null = null;
 
   constructor(title: StageTitle, private readonly actions: StageActions) {
@@ -126,15 +138,23 @@ export class Stage {
     const projectEl =
       title.projects.length > 1
         ? h(
-            'label',
-            { class: 'project-switch' },
-            h('span', { class: 'sr-only' }, 'Projeto'),
-            h(
-              'select',
-              { class: 'project-name project-select', onchange: (e: Event) => actions.onProject((e.target as HTMLSelectElement).value) },
-              ...title.projects.map((p) => h('option', { value: p.id, selected: p.id === title.current }, p.name)),
+            'div',
+            { class: 'project-tabs', role: 'tablist', 'aria-label': 'Vistas' },
+            ...title.projects.map((p) =>
+              h(
+                'button',
+                {
+                  type: 'button',
+                  role: 'tab',
+                  'aria-selected': p.id === title.current ? 'true' : 'false',
+                  class: `project-tab ${p.id === title.current ? 'project-tab--active' : ''}`,
+                  onclick: () => {
+                    if (p.id !== title.current) actions.onProject(p.id);
+                  },
+                },
+                p.id === 'sala_estar_360' ? 'Panorama 360°' : (p.id === 'sala_estar' ? 'Câmera Principal' : p.name),
+              ),
             ),
-            icon(ICONS.chevron, 15),
           )
         : h('h1', { class: 'project-name' }, title.project);
 
@@ -170,7 +190,7 @@ export class Stage {
 
   setPoster(url: string, width: number, height: number): void {
     this.aspect = width / height;
-    this.el.style.setProperty('--aspect', `${width} / ${height}`);
+    if (!this.pano) this.el.style.setProperty('--aspect', `${width} / ${height}`);
     this.poster.src = url;
     this.layout();
   }
@@ -182,6 +202,13 @@ export class Stage {
   layout(): void {
     const r = this.well.getBoundingClientRect();
     if (!r.width || !r.height) return;
+    if (this.pano) {
+      // 360: a "janela" para o panorama é a tela inteira
+      this.frame.style.width = `${Math.round(r.width)}px`;
+      this.frame.style.height = `${Math.round(r.height)}px`;
+      this.onResize?.(Math.round(r.width), Math.round(r.height));
+      return;
+    }
     const cover = !window.matchMedia(MOBILE).matches;
     const byWidth = r.width / this.aspect;
     const fitHeight = cover ? byWidth < r.height : byWidth > r.height;
@@ -241,6 +268,8 @@ export class Stage {
     };
     this.frame.addEventListener('pointerdown', (e) => {
       if (!this.comparing) return;
+      // no 360 arrastar a imagem gira a vista: a cortina só se move pela alça
+      if (this.pano && !(e.target as Element).closest('.cmp-handle')) return;
       dragging = true;
       this.frame.setPointerCapture(e.pointerId);
       this.frame.classList.add('is-dragging');
@@ -280,6 +309,7 @@ export class Stage {
     };
     this.frame.addEventListener('pointermove', (e) => {
       if (this.comparing || e.pointerType !== 'mouse') return;
+      if (e.buttons) return hide(); // girando a vista
       const [u, v] = uvOf(e);
       const label = this.actions.onHover(u, v);
       if (!label) return hide();
@@ -294,11 +324,104 @@ export class Stage {
       hide();
     });
     this.frame.addEventListener('click', (e) => {
+      if (this.dragged) {
+        this.dragged = false;
+        return;
+      }
       if (this.comparing) return;
       hide(); // o rótulo do hover sai de cena quando o leque abre
       const [u, v] = uvOf(e);
       const s = this.el.getBoundingClientRect();
       this.actions.onPick(u, v, (e as PointerEvent).pointerType === 'touch', e.clientX - s.left, e.clientY - s.top);
+    });
+  }
+
+  // --- Panorama 360° ------------------------------------------------------------------
+
+  /** Liga o modo 360°: a imagem ocupa a tela e arrastar olha em volta. Chamar antes de setPoster. */
+  enablePanorama(ctrl: PanoControl): void {
+    if (this.pano) return;
+    this.pano = ctrl;
+    this.el.classList.add('is-pano');
+    this.el.style.setProperty('--aspect', '4 / 3');
+    this.bindPano(ctrl);
+    this.layout();
+  }
+
+  private bindPano(ctrl: PanoControl): void {
+    const pts = new Map<number, { x: number; y: number }>();
+    let travel = 0;
+    let pinch = 0;
+    const spread = () => {
+      const [a, b] = [...pts.values()];
+      return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+    };
+    this.frame.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if ((e.target as Element).closest('.cmp-handle')) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.frame.setPointerCapture(e.pointerId);
+      if (pts.size === 1) travel = 0;
+      pinch = spread();
+    });
+    this.frame.addEventListener('pointermove', (e) => {
+      const prev = pts.get(e.pointerId);
+      if (!prev) return;
+      const dx = e.clientX - prev.x;
+      const dy = e.clientY - prev.y;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const v = ctrl.get();
+      if (pts.size >= 2) {
+        const d = spread();
+        if (pinch > 0 && d > 0) ctrl.set({ fov: v.fov * (pinch / d) });
+        pinch = d;
+        travel += 99;
+        return;
+      }
+      // "agarrar a imagem": o ponto sob o dedo acompanha o dedo
+      const radPerPx = ((v.fov * Math.PI) / 180) / Math.max(1, this.frame.clientHeight);
+      travel += Math.abs(dx) + Math.abs(dy);
+      if (travel > 5 && !this.dragged) {
+        this.dragged = true;
+        this.frame.classList.add('is-grabbing');
+        ctrl.onStart?.();
+      }
+      if (this.dragged) ctrl.set({ yaw: v.yaw - dx * radPerPx, pitch: v.pitch + dy * radPerPx });
+    });
+    const end = (e: PointerEvent) => {
+      if (!pts.delete(e.pointerId)) return;
+      if (this.frame.hasPointerCapture(e.pointerId)) this.frame.releasePointerCapture(e.pointerId);
+      pinch = spread();
+      if (!pts.size) {
+        this.frame.classList.remove('is-grabbing');
+        // o click chega logo depois do pointerup; sem arrasto, ele seleciona a superfície normalmente
+        if (!this.dragged) return;
+        window.setTimeout(() => (this.dragged = false), 0);
+      }
+    };
+    this.frame.addEventListener('pointerup', end);
+    this.frame.addEventListener('pointercancel', end);
+    this.frame.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        ctrl.set({ fov: ctrl.get().fov * Math.exp(e.deltaY * 0.0012) });
+      },
+      { passive: false },
+    );
+    window.addEventListener('keydown', (e) => {
+      const t = e.target as HTMLElement;
+      if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) || t.getAttribute('role') === 'slider') return;
+      const step = e.shiftKey ? 0.25 : 0.08;
+      const v = ctrl.get();
+      if (e.key === 'ArrowLeft') ctrl.set({ yaw: v.yaw - step });
+      else if (e.key === 'ArrowRight') ctrl.set({ yaw: v.yaw + step });
+      else if (e.key === 'ArrowUp') ctrl.set({ pitch: v.pitch + step });
+      else if (e.key === 'ArrowDown') ctrl.set({ pitch: v.pitch - step });
+      else if (e.key === '+' || e.key === '=') ctrl.set({ fov: v.fov / 1.15 });
+      else if (e.key === '-') ctrl.set({ fov: v.fov * 1.15 });
+      else return;
+      e.preventDefault();
     });
   }
 

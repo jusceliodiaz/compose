@@ -66,6 +66,8 @@ export interface RawCatalog {
   project_name?: string;
   camera: string;
   camera_name?: string;
+  /** Panorama 360° equirretangular (2:1): a imagem é vista por dentro, arrastando para olhar em volta. */
+  is_360?: boolean;
   resolution?: { view?: Vec2; export?: Vec2 };
   tone_mapping?: { operator?: ToneOperator; exposure?: number; lut?: ToneLut };
   base_passes: {
@@ -156,6 +158,8 @@ export interface CameraDef {
   name: string;
   viewResolution: Vec2;
   exportResolution: Vec2;
+  /** 'equirect' = panorama 360° (os passes são equirretangulares). */
+  projection: 'perspective' | 'equirect';
   tone: { operator: ToneOperator; exposure: number; lut: ToneLut | null };
   passes: CameraPasses;
   lightGroups: LightGroup[];
@@ -335,6 +339,7 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
     name: c.camera_name ?? c.camera,
     viewResolution: view,
     exportResolution: isVec(c.resolution?.export, 2) ? (c.resolution!.export as Vec2) : view,
+    projection: c.is_360 === true ? 'equirect' : 'perspective',
     tone: {
       operator: c.tone_mapping?.operator ?? 'agx',
       exposure: isNum(c.tone_mapping?.exposure) ? c.tone_mapping!.exposure! : 1,

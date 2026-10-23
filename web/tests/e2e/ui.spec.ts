@@ -19,9 +19,9 @@ test('troca o material pela URL e confere o screenshot', async ({ page }) => {
 test('a interface atualiza a URL (material, rotação, luz) e restaura ao recarregar', async ({ page }) => {
   await openApp(page);
   await page.getByRole('radio', { name: /Mármore Carrara/ }).click();
-  // "Ajustar textura" e "Iluminação" começam recolhidas
-  await page.locator('summary', { hasText: 'Ajustar textura' }).click();
-  await page.locator('summary', { hasText: 'Iluminação' }).click();
+  // "Ajustar textura" e "Iluminação" ficam sempre à vista
+  await expect(page.getByRole('heading', { name: 'Ajustar textura' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Iluminação' })).toBeVisible();
   await page.getByRole('button', { name: '90°' }).click();
   await page.getByRole('slider', { name: 'Intensidade' }).first().fill('1.5');
   await expect.poll(() => page.url()).toContain('floor=marble');

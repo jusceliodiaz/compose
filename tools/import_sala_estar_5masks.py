@@ -218,7 +218,7 @@ def run_import():
     catalog = {
         "schema_version": 2,
         "project_id": "sala_estar",
-        "project_name": "Sala de Estar",
+        "project_name": "Living room - Configurator",
         "camera": "cam7",
         "camera_name": "CoronaCamera007",
         "resolution": {"view": [w, h], "export": [w, h]},
@@ -256,7 +256,7 @@ def run_import():
     cat_path.write_text(json.dumps(catalog, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"Catálogo salvo em {cat_path}")
 
-    update_index(cat_dir, "sala_estar", "Sala de Estar", make_default=True)
+    update_index(cat_dir, "sala_estar", "Living room - Configurator", make_default=True)
     print("index.json atualizado com sala_estar como default!")
 
     chk = validate_catalog.validate(catalog, public_dir)

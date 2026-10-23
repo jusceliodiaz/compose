@@ -4,12 +4,23 @@ import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 
 const textureLoader = new THREE.TextureLoader();
 
-/** Passes de DADOS (UV, máscaras, AO): sem cor, sem filtro, sem mipmap. flipY = true (padrão). */
+/** Passes de DADOS (UV, AO): sem cor, sem filtro, sem mipmap. flipY = true (padrão). */
 export async function loadData(url: string): Promise<THREE.Texture> {
   const t = await textureLoader.loadAsync(url);
   t.colorSpace = THREE.NoColorSpace;
   t.minFilter = THREE.NearestFilter;
   t.magFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** Máscaras de recorte: sem cor, LinearFilter para antialiasing sub-pixel suave na GPU, sem mipmaps. */
+export async function loadMask(url: string): Promise<THREE.Texture> {
+  const t = await textureLoader.loadAsync(url);
+  t.colorSpace = THREE.NoColorSpace;
+  t.minFilter = THREE.LinearFilter;
+  t.magFilter = THREE.LinearFilter;
   t.generateMipmaps = false;
   t.needsUpdate = true;
   return t;

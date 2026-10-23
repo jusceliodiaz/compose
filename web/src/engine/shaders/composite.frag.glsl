@@ -56,7 +56,7 @@ uniform float u_toneLut[128];    // T em pontos igualmente espaçados de log2(x)
 uniform vec4  u_toneLutInfo;     // (log2_min, log2_max, inclinação abaixo do mínimo, nº de valores)
 uniform float u_splitX;          // cortina antes/depois: x < splitX mostra o "antes"
 uniform int   u_debug;           // 0 normal, 1 UV, 2 máscaras, 3 luz difusa, 4 costuras, 5 albedo (slot 0)
-uniform int   u_hoverSlot;       // superfície sob o cursor (-1 = nenhuma): véu claro + contorno. Nunca no export.
+uniform int   u_hoverSlot;       // superfície sob o cursor (-1 = nenhuma): véu claro. Nunca no export.
 uniform float u_hoverAmount;     // 0..1 (fade)
 uniform vec3  u_hoverSelect;     // canal da máscara da superfície destacada (independe do material escolhido)
 uniform float u_hoverFile;       // 0 → u_mask0, 1 → u_mask1
@@ -170,8 +170,6 @@ void main() {
     vec2 uv = decodeUV(vUv);
     vec2 duvdx = dFdx(uv);
     vec2 duvdy = dFdy(uv);
-    // tamanho de 1 px da tela em coordenadas da imagem (para o contorno ter espessura constante na tela)
-    vec2 screenPx = vec2(length(dFdx(vUv)), length(dFdy(vUv)));
 
     if (u_debug == 1) {
         vec2 n = (uv - u_uvRange.xy) / max(u_uvRange.zw - u_uvRange.xy, vec2(1e-6));
@@ -255,17 +253,7 @@ void main() {
     // destaque da superfície sob o cursor (em espaço de exibição, depois do tone mapping)
     if (u_hoverSlot >= 0 && u_hoverAmount > 0.0) {
         float k = hoverMask(m0, m1);
-        // contorno fino e suave: fração dos 8 vizinhos (a ~1,2 px) do outro lado da borda
-        float edge = 0.0;
-        for (int j = 0; j < 8; j++) {
-            float a = float(j) * 0.7853982;
-            vec2 o = vec2(cos(a), sin(a)) * screenPx * 1.2;
-            float kn = hoverMask(texture(u_mask0, vUv + o), texture(u_mask1, vUv + o));
-            edge += abs(k - kn);
-        }
-        edge = smoothstep(0.0, 4.0, edge);
         outColor = mix(outColor, vec3(1.0), 0.07 * k * u_hoverAmount);   // véu discreto
-        outColor = mix(outColor, vec3(1.0), 0.75 * edge * u_hoverAmount); // contorno
     }
     fragColor = vec4(outColor, 1.0);
 }

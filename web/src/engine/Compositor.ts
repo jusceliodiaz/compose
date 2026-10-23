@@ -7,13 +7,16 @@ import {
   loadData,
   loadDisplay,
   loadHDR,
+  loadMask,
   meanColor,
   solidData,
   textureBytes,
   whiteAlbedo,
 } from './loaders';
+import { clampView, type PanoView, screenToEquirect } from './panoramaView';
 import fragmentShader from './shaders/composite.frag.glsl?raw';
 import vertexShader from './shaders/composite.vert.glsl?raw';
+import panoramaShader from './shaders/panorama.frag.glsl?raw';
 
 export interface SlotTransform {
   /** Multiplicador sobre a escala física (2 = textura 2× maior). */
@@ -68,6 +71,17 @@ const MAX_LG = 4;
 
 export type ProgressFn = (loaded: number, total: number) => void;
 
+/**
+ * Câmera 360°: a composição (materiais, luz, tone map) é feita na imagem equirretangular inteira,
+ * num render target, exatamente como numa câmera comum. Uma segunda passada só projeta esse
+ * resultado na tela; girar a vista refaz apenas essa passada, barata.
+ */
+interface PanoTargets {
+  after: THREE.WebGLRenderTarget;
+  /** "Antes" (render original), criado só quando a cortina é ligada. */
+  before: THREE.WebGLRenderTarget | null;
+}
+
 export class Compositor {
   readonly renderer: THREE.WebGLRenderer;
   readonly material: THREE.RawShaderMaterial;
@@ -87,6 +101,14 @@ export class Compositor {
   private baseExposure = 1;
   private ev = 0;
   private renderCount = 0;
+  /** A composição mudou desde o último render (no 360, a vista pode mudar sem refazer a composição). */
+  private compositeDirty = true;
+  private beforeDirty = true;
+  private pano: PanoTargets | null = null;
+  private view: PanoView = { yaw: 0, pitch: 0, fov: 75 };
+  private split = 0;
+  private readonly panoScene = new THREE.Scene();
+  private readonly panoMaterial: THREE.RawShaderMaterial;
   /** Chamado depois de cada render (a UI usa para atualizar indicadores). */
   onRender: (() => void) | null = null;
 
@@ -130,6 +152,46 @@ export class Compositor {
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
     this.quad.frustumCulled = false;
     this.scene.add(this.quad);
+
+    this.panoMaterial = new THREE.RawShaderMaterial({
+      glslVersion: THREE.GLSL3,
+      vertexShader,
+      fragmentShader: panoramaShader,
+      depthTest: false,
+      depthWrite: false,
+      uniforms: {
+        u_pano: u(this.black), u_before: u(this.black),
+        u_yaw: u(0), u_pitch: u(0), u_tanHalf: u(1), u_aspect: u(1), u_splitX: u(0),
+      },
+    });
+    const panoQuad = new THREE.Mesh(this.quad.geometry, this.panoMaterial);
+    panoQuad.frustumCulled = false;
+    this.panoScene.add(panoQuad);
+  }
+
+  /** true quando a câmera atual é um panorama 360°. */
+  get isPanorama(): boolean {
+    return this.pano !== null;
+  }
+
+  get panoView(): PanoView {
+    return { ...this.view };
+  }
+
+  /** Muda a direção/zoom da vista 360° (não refaz a composição). */
+  setView(v: Partial<PanoView>): void {
+    this.view = clampView({ ...this.view, ...v });
+    this.scheduleRender();
+  }
+
+  /**
+   * Ponto da tela (0–1, origem no canto superior esquerdo) → ponto da imagem dos passes, no mesmo
+   * referencial. Numa câmera comum é a identidade; no 360, segue o raio até a imagem equirretangular.
+   */
+  toImageUV(sx: number, sy: number): [number, number] {
+    if (!this.pano || sx < 0 || sx > 1 || sy < 0 || sy > 1) return [sx, sy];
+    const [w, h] = this.cssSize ?? [1, 1];
+    return screenToEquirect(this.view, sx, sy, w / h);
   }
 
   get maxAnisotropy(): number {
@@ -164,6 +226,10 @@ export class Compositor {
     this.cam = cam;
     this.passes = passes;
     this.bindPasses(passes, cam);
+    if (cam.projection === 'equirect') {
+      this.pano = { after: panoTarget(passes.width, passes.height), before: null };
+      this.material.uniforms.u_splitX!.value = 0;
+    }
 
     this.lights.clear();
     for (const g of cam.lightGroups) this.lights.set(g.id, { intensity: g.intensity, kelvin: g.kelvin });
@@ -321,11 +387,22 @@ export class Compositor {
 
   /** Cortina antes/depois: fração horizontal [0, 1] que mostra o render original. */
   setSplit(x: number): void {
-    this.material.uniforms.u_splitX!.value = Math.min(1, Math.max(0, x));
+    this.split = Math.min(1, Math.max(0, x));
+    // no 360 a cortina é da TELA (aplicada na projeção); a composição fica sempre inteira
+    if (this.pano) {
+      if (this.split > 0 && !this.pano.before) {
+        const [w, h] = this.passSize;
+        this.pano.before = panoTarget(w, h);
+        this.beforeDirty = true;
+      }
+      this.scheduleRender();
+      return;
+    }
+    this.material.uniforms.u_splitX!.value = this.split;
     this.requestRender();
   }
 
-  /** Destaca a superfície sob o cursor (véu + contorno). null remove. Não aparece em renderToPixels/export. */
+  /** Destaca a superfície sob o cursor (véu claro). null remove. Não aparece em renderToPixels/export. */
   setHover(slotId: string | null, amount = 1): void {
     const idx = slotId && this.catalog ? this.catalog.slots.findIndex((s) => s.id === slotId) : -1;
     const U = this.material.uniforms;
@@ -362,15 +439,24 @@ export class Compositor {
     this.cssSize = [w, h];
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const passW = this.passes?.width ?? w * dpr;
-    this.renderer.setPixelRatio(Math.max(1, Math.min(dpr, passW / w)));
+    // no 360 a tela mostra só uma fatia da imagem: a densidade fica no dpr (a projeção é barata)
+    this.renderer.setPixelRatio(this.pano ? dpr : Math.max(1, Math.min(dpr, passW / w)));
     this.renderer.setSize(w, h, false);
-    this.requestRender();
+    if (this.pano) this.scheduleRender();
+    else this.requestRender();
   }
 
   // --- Render sob demanda ----------------------------------------------------------
 
   /** Agenda UM render no próximo frame (várias mudanças no mesmo frame → um render só). */
   requestRender(): void {
+    this.compositeDirty = true;
+    this.beforeDirty = true;
+    this.scheduleRender();
+  }
+
+  /** Agenda um render sem marcar a composição como alterada (só a vista 360° mudou). */
+  private scheduleRender(): void {
     if (this.frame) return;
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
@@ -380,10 +466,40 @@ export class Compositor {
 
   render(): void {
     if (!this.passes) return;
-    this.renderer.setRenderTarget(null);
-    this.renderer.render(this.scene, this.camera3);
+    if (this.pano) this.renderPanorama(this.pano);
+    else {
+      this.renderer.setRenderTarget(null);
+      this.renderer.render(this.scene, this.camera3);
+    }
     this.renderCount++;
     this.onRender?.();
+  }
+
+  private renderPanorama(p: PanoTargets): void {
+    const U = this.material.uniforms;
+    if (this.compositeDirty) {
+      this.renderer.setRenderTarget(p.after);
+      this.renderer.render(this.scene, this.camera3);
+      this.compositeDirty = false;
+    }
+    if (p.before && this.split > 0 && this.beforeDirty) {
+      U.u_splitX!.value = 2; // vUv.x < 2 em toda a imagem: tudo "antes"
+      this.renderer.setRenderTarget(p.before);
+      this.renderer.render(this.scene, this.camera3);
+      U.u_splitX!.value = 0;
+      this.beforeDirty = false;
+    }
+    const V = this.panoMaterial.uniforms;
+    const [w, h] = this.cssSize ?? [1, 1];
+    V.u_pano!.value = p.after.texture;
+    V.u_before!.value = p.before?.texture ?? p.after.texture;
+    V.u_yaw!.value = this.view.yaw;
+    V.u_pitch!.value = this.view.pitch;
+    V.u_tanHalf!.value = Math.tan(THREE.MathUtils.degToRad(this.view.fov) / 2);
+    V.u_aspect!.value = w / h;
+    V.u_splitX!.value = this.split;
+    this.renderer.setRenderTarget(null);
+    this.renderer.render(this.panoScene, this.camera3);
   }
 
   /**
@@ -448,6 +564,9 @@ export class Compositor {
   private disposePasses(): void {
     if (this.passes) disposePassSet(this.passes);
     this.passes = null;
+    this.pano?.after.dispose();
+    this.pano?.before?.dispose();
+    this.pano = null;
   }
 
   dispose(): void {
@@ -458,10 +577,27 @@ export class Compositor {
     this.white.dispose();
     this.black.dispose();
     this.material.dispose();
+    this.panoMaterial.dispose();
     this.quad.geometry.dispose();
     this.renderer.dispose();
   }
 
+}
+
+/** Alvo da composição 360°: já em sRGB 8-bit; REPEAT em S fecha a emenda da esquerda com a direita. */
+function panoTarget(width: number, height: number): THREE.WebGLRenderTarget {
+  const rt = new THREE.WebGLRenderTarget(width, height, {
+    type: THREE.UnsignedByteType,
+    format: THREE.RGBAFormat,
+    depthBuffer: false,
+    generateMipmaps: false,
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    wrapS: THREE.RepeatWrapping,
+    wrapT: THREE.ClampToEdgeWrapping,
+  });
+  rt.texture.colorSpace = THREE.NoColorSpace;
+  return rt;
 }
 
 // --- Conjunto de passes ------------------------------------------------------------------
@@ -487,7 +623,7 @@ export async function loadPassSet(cam: CameraDef, mapUrl: (u: string) => string,
   const aoP = opt(P.diffuseLight ? null : P.shadowAO, loadData);
   const uvHiP = track(loadData(mapUrl(P.uv.kind === 'u16_hilo' ? P.uv.hi : P.uv.map)));
   const uvLoP = P.uv.kind === 'u16_hilo' ? track(loadData(mapUrl(P.uv.lo))) : Promise.resolve(null);
-  const masksP = Promise.all(P.maskFiles.map((m) => track(loadData(mapUrl(m)))));
+  const masksP = Promise.all(P.maskFiles.map((m) => track(loadMask(mapUrl(m)))));
   const lgP = Promise.all(cam.lightGroups.map((g) => track(loadHDR(mapUrl(g.pass)))));
   onProgress?.(0, jobs.length);
 

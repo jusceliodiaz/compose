@@ -84,12 +84,12 @@ export async function startApp(root: HTMLElement): Promise<void> {
       onTogglePanel: () => togglePanel(),
       onHover: (u, v) => {
         if (quick.isOpen) return null; // o leque está aberto: o destaque fica na superfície dele
-        const slot = picker?.slotAt(u, v) ?? null;
+        const slot = picker?.slotAt(...compositor.toImageUV(u, v)) ?? null;
         compositor?.setHover(slot?.id ?? null);
         return slot?.name ?? null;
       },
       onPick: (u, v, _touch, x, y) => {
-        const slot = picker?.slotAt(u, v);
+        const slot = picker?.slotAt(...compositor.toImageUV(u, v));
         if (!slot) {
           quick.close();
           return;
@@ -138,6 +138,14 @@ export async function startApp(root: HTMLElement): Promise<void> {
   });
   stage.el.append(panel.dock, quick.el);
   root.replaceChildren(stage.el, panel.el);
+  // 360°: arrastar olha em volta; a composição de materiais continua igual, na imagem equirretangular
+  if (cam.projection === 'equirect') {
+    stage.enablePanorama({
+      get: () => compositor.panoView,
+      set: (v) => compositor.setView(v),
+      onStart: () => quick.close(),
+    });
+  }
   stage.setPoster(cam.passes.beautyDisplay, cam.viewResolution[0], cam.viewResolution[1]);
 
   try {
@@ -273,6 +281,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
     const pk = new Picker(catalog);
     pk.load().then(() => (picker = pk), (e) => console.warn('[compose] seleção por clique indisponível:', e));
     stage.setReady();
+    if (compositor.isPanorama) stage.toast('Panorama 360°: arraste para olhar em volta · role para zoom.', 'ok', 5000);
     store.subscribe((s, prev) => {
       void apply(s, prev);
       writeUrl(s);

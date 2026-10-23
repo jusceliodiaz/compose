@@ -1,5 +1,5 @@
-// Painel: janela flutuante compacta (design system do Amalfi). Cabeçalho com a superfície atual → acabamentos →
-// ajustar textura / iluminação (recolhíveis) → total + export. As superfícies ficam num dock embaixo da imagem.
+// Painel: janela flutuante compacta (design system do Amalfi). Cabeçalho com a superfície atual → 4 acabamentos
+// (3 texturas + 1 cor) → ajustar textura / iluminação (sempre à vista) → total + export. As superfícies ficam num dock embaixo da imagem.
 import type { MaterialOption, NormalizedCatalog, Slot } from '../catalog/schema';
 import { budget, type ConfigState, type Store } from '../state/store';
 import { EV_RANGE, kelvinBounds } from '../state/urlState';
@@ -27,6 +27,21 @@ const fmtEv = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${num(Math.abs(
 
 type Updater = (s: ConfigState) => void;
 
+/**
+ * Os 4 acabamentos do painel: 3 texturas (as do leque primeiro) + 1 cor sólida.
+ * A opção atual sempre aparece (ex.: escolhida pela URL), no lugar da última textura ou da cor.
+ */
+export function featured(slot: Slot, current: string): MaterialOption[] {
+  const pool = slot.options.filter((o) => !o.isTest && !o.keepOriginal);
+  const textures = pool.filter((o) => o.diffuseMap);
+  const quick = slot.quickOptions.map((q) => textures.find((o) => o.id === q.optionId)).filter((o): o is MaterialOption => !!o);
+  const tex = [...new Set([...quick, ...textures])].slice(0, 3);
+  const cur = pool.find((o) => o.id === current);
+  if (cur?.diffuseMap && !tex.includes(cur)) tex.splice(Math.min(tex.length, 2), 1, cur);
+  const color = cur && !cur.diffuseMap ? cur : pool.find((o) => !o.diffuseMap);
+  return color ? [...tex, color] : tex;
+}
+
 export class Panel {
   readonly el: HTMLElement;
   /** Dock de superfícies (fica no palco, fora da janela). */
@@ -37,8 +52,6 @@ export class Panel {
   private readonly exportBtn: HTMLButtonElement;
   private updaters: Updater[] = [];
   private readonly footUpdaters: Updater[] = [];
-  /** Seções recolhíveis abertas (sobrevive à reconstrução do painel). */
-  private readonly open = new Set<string>();
 
   constructor(
     private readonly catalog: NormalizedCatalog,
@@ -124,18 +137,16 @@ export class Panel {
     this.body.scrollTop = scroll;
   }
 
-  /** Seção recolhível (<details>) com um resumo do estado ao lado do título. */
-  private disclosure(id: string, title: string, summary: (s: ConfigState) => string, ...content: (Node | null)[]): HTMLElement {
-    const meta = h('span', { class: 'acc-meta' });
+  /** Seção sempre aberta, com um resumo do estado ao lado do título. */
+  private section(title: string, summary: (s: ConfigState) => string, ...content: (Node | null)[]): HTMLElement {
+    const meta = h('span', { class: 'sect-meta' });
     this.updaters.push((s) => (meta.textContent = summary(s)));
-    const det = h(
-      'details',
-      { class: 'acc', open: this.open.has(id), 'data-id': id },
-      h('summary', { class: 'acc-sum' }, h('span', { class: 'acc-title' }, title), meta, h('span', { class: 'acc-chev' }, icon(ICONS.chevron, 16))),
-      h('div', { class: 'acc-body' }, ...content),
+    return h(
+      'section',
+      { class: 'sect' },
+      h('div', { class: 'sect-head' }, h('h3', { class: 'sect-title' }, title), meta),
+      h('div', { class: 'sect-body' }, ...content),
     );
-    det.addEventListener('toggle', () => (det.open ? this.open.add(id) : this.open.delete(id)));
-    return det;
   }
 
   // --- Cabeçalho: superfície atual + fechar --------------------------------------
@@ -144,7 +155,7 @@ export class Panel {
     const slots = this.catalog.slots;
     const i = slots.findIndex((s) => s.id === this.activeSlot);
     const slot = this.slot;
-    const meta = [slot.areaM2 !== null ? `${num(slot.areaM2, 1)} m²` : null, `${slot.options.filter((o) => !o.isTest).length} acabamentos`]
+    const meta = [slot.areaM2 !== null ? `${num(slot.areaM2, 1)} m²` : null, `${featured(slot, this.store.get().slots[slot.id]!.option).length} acabamentos`]
       .filter(Boolean)
       .join(' · ');
     return h(
@@ -197,10 +208,8 @@ export class Panel {
   private finishes(st: ConfigState): HTMLElement {
     const slot = this.slot;
     const cfg = st.slots[slot.id]!;
-    const visible = slot.options.filter((x) => !x.isTest);
-    // 4 opções → 4 colunas (evita um card sozinho na segunda linha)
-    const cols = visible.length === 4 ? 4 : 3;
-    const grid = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': `Acabamentos de ${slot.name}`, style: `--cols:${cols}` });
+    const visible = featured(slot, cfg.option);
+    const grid = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': `Acabamentos de ${slot.name}` });
     for (const o of visible) {
       const on = o.id === cfg.option;
       const thumb = o.thumbnail
@@ -246,6 +255,21 @@ export class Panel {
       ),
       opt.finish ? h('p', { class: 'detail-finish' }, opt.finish) : null,
       specs.length ? h('dl', { class: 'specs' }, ...specs.map(([k, v]) => h('div', { class: 'spec' }, h('dt', {}, k), h('dd', {}, v)))) : null,
+      cfg.option !== slot.defaultOption
+        ? h(
+            'button',
+            {
+              class: 'text-btn',
+              type: 'button',
+              onclick: () => {
+                const d = slot.options.find((o) => o.id === slot.defaultOption)!;
+                this.store.setSlot(slot.id, { option: d.id, variant: d.tintVariants[0]?.id ?? null });
+              },
+            },
+            icon(ICONS.reset, 15),
+            'Voltar ao original',
+          )
+        : null,
     );
 
     if (opt.tintVariants.length > 1) {
@@ -327,8 +351,7 @@ export class Panel {
       ? 'Material original do render: não há ajustes de textura.'
       : 'Cor sólida: escala e rotação não se aplicam.';
 
-    return this.disclosure(
-      'transform',
+    return this.section(
       'Ajustar textura',
       (s) => {
         const c = s.slots[slot.id]!;
@@ -390,8 +413,7 @@ export class Panel {
       );
     });
 
-    return this.disclosure(
-      'lights',
+    return this.section(
       'Iluminação',
       (s) => {
         const changed = cam.lightGroups.filter((g) => {
