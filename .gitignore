@@ -12,3 +12,6 @@ tools/.cache/
 
 # cenas do 3ds Max (pesadas, fora do git)
 *.max
+
+# vínculo local com a Vercel
+.vercel/
