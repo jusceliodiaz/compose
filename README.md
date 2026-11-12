@@ -7,7 +7,6 @@ metros, máscaras) e um fragment shader WebGL2 re-projeta a textura nova sobre a
 - Especificação de construção: [CLAUDE.md](CLAUDE.md)
 - Referência técnica: [docs/Guia_ZYcompose_Unificado.md](docs/Guia_ZYcompose_Unificado.md)
 - Descobertas e versões: [docs/NOTAS_IMPLEMENTACAO.md](docs/NOTAS_IMPLEMENTACAO.md)
-- Protótipo antigo (só referência, não usar): [legacy/](legacy/)
 
 ## Requisitos
 

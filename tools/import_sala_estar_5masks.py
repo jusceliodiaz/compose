@@ -168,22 +168,6 @@ def run_import():
             ]
         },
         {
-            "id": "carpet",
-            "name": "Tapete",
-            "mask_ref": {"file": 0, "channel": "b"},
-            "default_texture": "original",
-            "allow_user_transform": {"scale": [0.5, 2.0], "rotation": False, "offset": False},
-            "gloss_keep": 0.1,
-            "area_m2": 15.0,
-            "options": [
-                {"id": "original", "name": "Original do render", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_carpet.webp", "finish": "Tapete original do render"},
-                {"id": "off_white", "name": "Off White Bouclê", "albedo_color": [0.85, 0.84, 0.82], "finish": "Bouclê macio"},
-                {"id": "cinza_claro", "name": "Cinza Mescla", "albedo_color": [0.55, 0.55, 0.55], "finish": "Fio de lã"},
-                {"id": "terracota_tapete", "name": "Terracota", "albedo_color": [0.46, 0.16, 0.08], "finish": "Algodão tingido"},
-                {"id": "areia_fio", "name": "Areia", "albedo_color": [0.68, 0.61, 0.48], "finish": "Fibra natural"}
-            ]
-        },
-        {
             "id": "parede",
             "name": "Paredes",
             "mask_ref": {"file": 1, "channel": "r"},
@@ -235,7 +219,7 @@ def run_import():
             "masks_packed": [
                 {
                     "file": f"{rel_cam}/masks_a.png",
-                    "channels": {"r": "sofa", "g": "piso", "b": "carpet"}
+                    "channels": {"r": "sofa", "g": "piso"}
                 },
                 {
                     "file": f"{rel_cam}/masks_b.png",

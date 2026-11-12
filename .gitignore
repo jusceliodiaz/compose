@@ -1,4 +1,5 @@
 __pycache__/
+debug_*.png
 *.pyc
 .pytest_cache/
 renders/

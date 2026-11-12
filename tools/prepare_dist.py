@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -75,6 +76,11 @@ def main(argv: list[str] | None = None) -> int:
     for d in sorted((dist / "assets").rglob("*"), key=lambda p: len(p.parts), reverse=True):
         if d.is_dir() and not any(d.iterdir()):
             d.rmdir()
+
+    # vercel.json (cache das imagens/EXR) vai junto: o deploy é feito de dentro do dist
+    vercel_cfg = ROOT / "web" / "vercel.json"
+    if vercel_cfg.is_file():
+        shutil.copyfile(vercel_cfg, dist / "vercel.json")
 
     saved = sum(to_piz(dist / r) for r in refs if r.endswith(".exr"))
     total = sum(f.stat().st_size for f in dist.rglob("*") if f.is_file() and ".vercel" not in f.parts)

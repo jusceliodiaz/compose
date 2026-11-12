@@ -137,7 +137,7 @@ def run_import():
             # spill só onde a cor original é forte e reflete nos vizinhos (armário laranja)
             raw_masks[name] = matte_edges(guide, raw_masks[name], spill_px=8 if name == "armario" else 0)
 
-    # masks_0: R=piso, G=tapete, B=sofa
+    # masks_0: R=piso, G=tapete (sem slot configurável), B=sofa
     # masks_1: R=parede, G=armario, B=zeros
     mask_0_rgb = np.zeros((h, w, 3), dtype=np.uint8)
     mask_0_rgb[..., 0] = (np.clip(raw_masks["piso"], 0, 1) * 255).astype(np.uint8)
@@ -223,7 +223,7 @@ def run_import():
         cat_360["base_passes"]["glossy"] = f"{rel_cam}/glossy.exr"
     
     cat_360["base_passes"]["masks_packed"] = [
-        {"file": f"{rel_cam}/masks_0.png", "channels": {"r": "piso", "g": "tapete", "b": "sofa"}},
+        {"file": f"{rel_cam}/masks_0.png", "channels": {"r": "piso", "b": "sofa"}},  # G = tapete: sem slot (fica como no render)
         {"file": f"{rel_cam}/masks_1.png", "channels": {"r": "parede", "g": "armario"}}
     ]
 
