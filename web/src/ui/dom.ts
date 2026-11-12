@@ -66,7 +66,7 @@ export const ICONS = {
 } as const;
 
 const brl = new Map<string, Intl.NumberFormat>();
-export function money(value: number, currency = 'BRL'): string {
+export function money(value: number, currency = 'EUR'): string {
   let f = brl.get(currency);
   if (!f) {
     f = new Intl.NumberFormat('en-US', { style: 'currency', currency });

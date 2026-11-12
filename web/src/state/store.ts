@@ -109,5 +109,5 @@ export function budget(catalog: NormalizedCatalog, state: ConfigState): { lines:
     });
   }
   const total = Math.round(lines.reduce((a, l) => a + l.total, 0) * 100) / 100;
-  return { lines, total, currency: lines[0]?.currency ?? 'BRL' };
+  return { lines, total, currency: lines[0]?.currency ?? 'EUR' };
 }

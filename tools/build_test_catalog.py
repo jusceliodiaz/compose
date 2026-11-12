@@ -29,7 +29,7 @@ def material(mid: str, name: str, size: tuple[float, float] | None, price: float
         o["texture_size_m"] = list(size)
     o["default_tiling"] = [1.0, 1.0]
     if price is not None:
-        o["price"] = {"value": price, "unit": "m2", "currency": "BRL"}
+        o["price"] = {"value": price, "unit": "m2", "currency": "EUR"}
     o.update(extra)
     return o
 

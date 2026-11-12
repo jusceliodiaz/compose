@@ -1,5 +1,5 @@
 {
-  "_doc": "Biblioteca de materiais do configurador. 'polyhaven'/'ambientcg' = id no acervo (CC0); tools/fetch_textures.py baixa e converte. 'size_m' = medida física da textura [U, V] em metros. 'tintable' = a textura é neutralizada (cinza) e as 'colors' viram variações. 'color' = material sólido (tinta/laca). Preços em BRL por m² (referência). 'featured' = as 3 opções do leque rápido (clique na imagem) por tipo, [id, variação].",
+  "_doc": "Biblioteca de materiais do configurador. 'polyhaven'/'ambientcg' = id no acervo (CC0); tools/fetch_textures.py baixa e converte. 'size_m' = medida física da textura [U, V] em metros. 'tintable' = a textura é neutralizada (cinza) e as 'colors' viram variações. 'color' = material sólido (tinta/laca). Preços em EUR por m² (referência). 'featured' = as 3 opções do leque rápido (clique na imagem) por tipo, [id, variação].",
   "kinds": {
     "floor": [
       "carvalho_claro",

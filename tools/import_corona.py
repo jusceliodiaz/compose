@@ -146,7 +146,7 @@ def library(kind: str, public: Path | None = None) -> list[dict]:
             o: dict = {"id": mid, "name": m["name"], "finish": m.get("finish", ""),
                        "gloss_keep": m.get("gloss_keep", 0.5), "sku": mid.upper().replace("_", "-")}
             if "price" in m:
-                o["price"] = {"value": m["price"], "unit": "m2", "currency": "BRL"}
+                o["price"] = {"value": m["price"], "unit": "m2", "currency": "EUR"}
             if "color" in m:
                 o["albedo_color"] = _hex_to_linear(m["color"])
                 o["finish"] = f"{o['finish']} · {m['color']}"
@@ -176,7 +176,7 @@ def library_procedural(kind: str) -> list[dict]:
         o = {"id": mid, "name": name, "thumbnail": f"{m}/{mid}/thumb.webp", "diffuse_map": f"{m}/{mid}/albedo.{ext}",
              "texture_size_m": list(size), "default_tiling": [1.0, 1.0]}
         if price is not None:
-            o["price"] = {"value": price, "unit": "m2", "currency": "BRL"}
+            o["price"] = {"value": price, "unit": "m2", "currency": "EUR"}
         o.update(kw)
         return o
 
@@ -206,7 +206,7 @@ def library_procedural(kind: str) -> list[dict]:
 
     def solids(items, finish, gloss, price, sku):
         return [{"id": pid, "name": name, "albedo_color": _hex_to_linear(hx), "finish": f"{finish} · {hx}",
-                 "gloss_keep": gloss, "price": {"value": price, "unit": "m2", "currency": "BRL"},
+                 "gloss_keep": gloss, "price": {"value": price, "unit": "m2", "currency": "EUR"},
                  "sku": f"{sku}-{pid.upper()}"} for pid, name, hx in items]
 
     if kind == "floor":

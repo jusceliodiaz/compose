@@ -21,13 +21,13 @@ const raw: RawCatalog = {
       allow_user_transform: { scale: [0.5, 2] },
       options: [
         {
-          id: 'oak', name: 'Carvalho', diffuse_map: 'o.webp', price: { value: 189.9, unit: 'm2', currency: 'BRL' },
+          id: 'oak', name: 'Carvalho', diffuse_map: 'o.webp', price: { value: 189.9, unit: 'm2', currency: 'EUR' },
           tint_variants: [
             { id: 'natural', name: 'Natural', tint: [1, 1, 1] },
             { id: 'mel', name: 'Mel', tint: [1.05, 0.88, 0.7] },
           ],
         },
-        { id: 'marble', name: 'Mármore', diffuse_map: 'm.webp', price: { value: 890, unit: 'm2', currency: 'BRL' } },
+        { id: 'marble', name: 'Mármore', diffuse_map: 'm.webp', price: { value: 890, unit: 'm2', currency: 'EUR' } },
         { id: 'checker', name: 'Checker', diffuse_map: 'c.png', is_test: true },
       ],
     },
