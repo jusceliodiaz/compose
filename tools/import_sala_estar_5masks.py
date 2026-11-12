@@ -139,62 +139,62 @@ def run_import():
     slots_config = [
         {
             "id": "piso",
-            "name": "Piso",
+            "name": "Floor",
             "mask_ref": {"file": 0, "channel": "g"},
             "default_texture": "original",
             "allow_user_transform": {"scale": [0.5, 2.0], "rotation": True, "offset": True},
             "gloss_keep": 0.6,
             "area_m2": 42.0,
             "options": [
-                {"id": "original", "name": "Original do render", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_piso.webp", "finish": "Madeira original do render"},
+                {"id": "original", "name": "Render original", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_piso.webp", "finish": "Render original wood"},
                 *library("floor")
             ]
         },
         {
             "id": "sofa",
-            "name": "Sofá",
+            "name": "Sofa",
             "mask_ref": {"file": 0, "channel": "r"},
             "default_texture": "original",
             "allow_user_transform": {"scale": [0.5, 2.0], "rotation": False, "offset": False},
             "gloss_keep": 0.2,
             "area_m2": 12.0,
             "options": [
-                {"id": "original", "name": "Original do render", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_sofa.webp", "finish": "Estofado original do render"},
-                {"id": "linho_cru", "name": "Linho Cru", "albedo_color": [0.78, 0.74, 0.68], "finish": "Tecido natural"},
-                {"id": "veludo_cinza", "name": "Veludo Cinza", "albedo_color": [0.35, 0.35, 0.36], "finish": "Veludo toque suave"},
-                {"id": "couro_caramelo", "name": "Couro Caramelo", "albedo_color": [0.55, 0.28, 0.12], "finish": "Couro legítimo"},
-                {"id": "verde_musgo", "name": "Verde Musgo", "albedo_color": [0.22, 0.30, 0.18], "finish": "Linho misto"},
-                {"id": "azul_marinho", "name": "Azul Marinho", "albedo_color": [0.08, 0.12, 0.22], "finish": "Brim peletizado"}
+                {"id": "original", "name": "Render original", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_sofa.webp", "finish": "Render original upholstery"},
+                {"id": "linho_cru", "name": "Raw Linen", "albedo_color": [0.78, 0.74, 0.68], "finish": "Natural fabric"},
+                {"id": "veludo_cinza", "name": "Gray Velvet", "albedo_color": [0.35, 0.35, 0.36], "finish": "Soft-touch velvet"},
+                {"id": "couro_caramelo", "name": "Caramel Leather", "albedo_color": [0.55, 0.28, 0.12], "finish": "Genuine leather"},
+                {"id": "verde_musgo", "name": "Moss Green", "albedo_color": [0.22, 0.30, 0.18], "finish": "Linen blend"},
+                {"id": "azul_marinho", "name": "Navy Blue", "albedo_color": [0.08, 0.12, 0.22], "finish": "Brushed denim"}
             ]
         },
         {
             "id": "parede",
-            "name": "Paredes",
+            "name": "Walls",
             "mask_ref": {"file": 1, "channel": "r"},
             "default_texture": "original",
             "allow_user_transform": {"scale": [0.5, 2.0], "rotation": False, "offset": False},
             "gloss_keep": 0.15,
             "area_m2": 65.0,
             "options": [
-                {"id": "original", "name": "Original do render", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_parede.webp", "finish": "Tinta original do render"},
+                {"id": "original", "name": "Render original", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_parede.webp", "finish": "Render original paint"},
                 *library("paint")
             ]
         },
         {
             "id": "armario_cima",
-            "name": "Armário Superior",
+            "name": "Upper Cabinet",
             "mask_ref": {"file": 1, "channel": "g"},
             "default_texture": "original",
             "allow_user_transform": {"scale": [0.5, 2.0], "rotation": False, "offset": False},
             "gloss_keep": 0.4,
             "area_m2": 8.0,
             "options": [
-                {"id": "original", "name": "Original do render", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_armario_cima.webp", "finish": "Acabamento original do render"},
-                {"id": "verde_salvia", "name": "Verde Sálvia Original", "albedo_color": [0.36, 0.42, 0.31], "finish": "Laca fosca"},
-                {"id": "branco_acetinado", "name": "Branco Acetinado", "albedo_color": [0.88, 0.88, 0.87], "finish": "Laca acetinada"},
-                {"id": "nogueira", "name": "Nogueira Escura", "albedo_color": [0.25, 0.18, 0.12], "finish": "Lâmina de madeira natural"},
-                {"id": "grafite", "name": "Grafite Profundo", "albedo_color": [0.07, 0.07, 0.06], "finish": "Laca fosca texturizada"},
-                {"id": "areia_quente", "name": "Areia Quente", "albedo_color": [0.69, 0.60, 0.45], "finish": "Microtextura"}
+                {"id": "original", "name": "Render original", "keep_original": True, "thumbnail": f"{rel_cam}/thumb_original_armario_cima.webp", "finish": "Render original finish"},
+                {"id": "verde_salvia", "name": "Original Sage Green", "albedo_color": [0.36, 0.42, 0.31], "finish": "Matte lacquer"},
+                {"id": "branco_acetinado", "name": "Satin White", "albedo_color": [0.88, 0.88, 0.87], "finish": "Satin lacquer"},
+                {"id": "nogueira", "name": "Dark Walnut", "albedo_color": [0.25, 0.18, 0.12], "finish": "Natural wood veneer"},
+                {"id": "grafite", "name": "Deep Graphite", "albedo_color": [0.07, 0.07, 0.06], "finish": "Textured matte lacquer"},
+                {"id": "areia_quente", "name": "Warm Sand", "albedo_color": [0.69, 0.60, 0.45], "finish": "Micro-texture"}
             ]
         }
     ]
@@ -228,8 +228,8 @@ def run_import():
             ]
         },
         "light_groups": [
-            {"id": "sky", "name": "Céu (Sky)", "pass": f"{rel_cam}/lg_sky.exr", "intensity": 1.0, "kelvin": 6500, "range": [0, 3]},
-            {"id": "sol", "name": "Sol", "pass": f"{rel_cam}/lg_sol.exr", "intensity": 1.0, "kelvin": 6500, "range": [0, 3]}
+            {"id": "sky", "name": "Sky", "pass": f"{rel_cam}/lg_sky.exr", "intensity": 1.0, "kelvin": 6500, "range": [0, 3]},
+            {"id": "sol", "name": "Sun", "pass": f"{rel_cam}/lg_sol.exr", "intensity": 1.0, "kelvin": 6500, "range": [0, 3]}
         ],
         "configurable_slots": slots_config
     }

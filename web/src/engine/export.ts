@@ -27,7 +27,7 @@ export function exportUrl(prefix: string, url: string): string {
 
 export async function exportImage(c: Compositor): Promise<ExportResult> {
   const cam = c.currentCamera;
-  if (!cam) throw new Error('nenhuma câmera carregada');
+  if (!cam) throw new Error('no camera loaded');
   const maxTex = c.maxTextureSize;
   const [ew, eh] = cam.exportResolution;
 
@@ -44,7 +44,7 @@ export async function exportImage(c: Compositor): Promise<ExportResult> {
     try {
       [width, height] = fitResolution(passes.width, passes.height, maxTex);
       native = width === passes.width && height === passes.height;
-      if (!native) note = `A GPU limita o export a ${width}×${height}.`;
+      if (!native) note = `The GPU limits the export to ${width}×${height}.`;
       pixels = c.renderToPixels(width, height, passes);
     } finally {
       disposePassSet(passes);
@@ -54,7 +54,7 @@ export async function exportImage(c: Compositor): Promise<ExportResult> {
     const [pw, ph] = c.passSize;
     [width, height] = fitResolution(pw, ph, maxTex);
     native = pw >= ew && ph >= eh;
-    if (!native) note = `Exportado em ${width}×${height}: esta câmera não tem passes ${ew}×${eh}, então não é a resolução nativa de export.`;
+    if (!native) note = `Exported at ${width}×${height}: this camera has no ${ew}×${eh} passes, so this is not the native export resolution.`;
     pixels = c.renderToPixels(width, height);
   }
 
@@ -62,10 +62,10 @@ export async function exportImage(c: Compositor): Promise<ExportResult> {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('canvas 2D indisponível');
+  if (!ctx) throw new Error('2D canvas unavailable');
   ctx.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer as ArrayBuffer), width, height), 0, 0);
   const blob = await new Promise<Blob>((res, rej) =>
-    canvas.toBlob((b) => (b ? res(b) : rej(new Error('falha ao gerar o PNG'))), 'image/png'),
+    canvas.toBlob((b) => (b ? res(b) : rej(new Error('failed to generate the PNG'))), 'image/png'),
   );
   canvas.width = canvas.height = 0; // libera a memória do canvas
   return { blob, width, height, native, note };

@@ -4,7 +4,7 @@ Uso:
   python tools/import_corona.py <pasta_renders> <projeto> <camera> [opções]
 
 Exemplo (cozinha, ver docs/CHECKLIST_3dsMax_Corona.md):
-  python tools/import_corona.py renders/cam1 cozinha_ilha cam1 --project-name "Cozinha com ilha" ^
+  python tools/import_corona.py renders/cam1 cozinha_ilha cam1 --project-name "Kitchen with island" ^
       --area piso=51.6 --area bancada=5.3 --area parede=110
 
 Arquivos esperados na pasta (nome = PREFIXO + nome do Render Element + .exr; prefixo padrão "<camera>_"):
@@ -62,9 +62,9 @@ class SlotSpec:
 
 
 DEFAULT_SLOTS = [
-    SlotSpec("masks_a", "r", "piso", "Piso", "floor"),
-    SlotSpec("masks_a", "g", "bancada", "Mármore", "stone"),
-    SlotSpec("masks_a", "b", "parede", "Paredes", "paint"),
+    SlotSpec("masks_a", "r", "piso", "Floor", "floor"),
+    SlotSpec("masks_a", "g", "bancada", "Marble", "stone"),
+    SlotSpec("masks_a", "b", "parede", "Walls", "paint"),
 ]
 
 
@@ -93,21 +93,21 @@ def _hex_to_linear(h: str) -> list[float]:
 
 
 PAINTS = [
-    ("branco_gelo", "Branco gelo", "#EEEDE8"),
-    ("areia", "Areia", "#D9CBB3"),
-    ("salvia", "Verde sálvia", "#A2AD97"),
-    ("terracota", "Terracota", "#B5704F"),
-    ("petroleo", "Azul petróleo", "#2F5662"),
-    ("grafite", "Grafite", "#4B4A48"),
+    ("branco_gelo", "Ice white", "#EEEDE8"),
+    ("areia", "Sand", "#D9CBB3"),
+    ("salvia", "Sage green", "#A2AD97"),
+    ("terracota", "Terracotta", "#B5704F"),
+    ("petroleo", "Petrol blue", "#2F5662"),
+    ("grafite", "Graphite", "#4B4A48"),
 ]
 
 
 LACQUERS = [
-    ("laca_branca", "Laca branca", "#F1F0EC"),
+    ("laca_branca", "White lacquer", "#F1F0EC"),
     ("off_white", "Off-white", "#E4DDD0"),
     ("verde_oliva", "Verde oliva", "#6F7350"),
-    ("azul_petroleo", "Azul petróleo", "#2E4F58"),
-    ("grafite", "Grafite", "#3D3C3A"),
+    ("azul_petroleo", "Petrol blue", "#2E4F58"),
+    ("grafite", "Graphite", "#3D3C3A"),
 ]
 
 
@@ -180,29 +180,29 @@ def library_procedural(kind: str) -> list[dict]:
         o.update(kw)
         return o
 
-    oak = tex("oak", "Carvalho em régua", (2.4, 1.2), 189.9, sku="PISO-CARV-001", finish="Madeira · réguas 1,20 × 0,20 m",
+    oak = tex("oak", "Oak planks", (2.4, 1.2), 189.9, sku="PISO-CARV-001", finish="Wood · 1.20 × 0.20 m planks",
               tint_variants=[{"id": "natural", "name": "Natural", "tint": [1, 1, 1]},
-                             {"id": "mel", "name": "Mel", "tint": [1.05, 0.88, 0.70]},
-                             {"id": "fume", "name": "Fumê", "tint": [0.55, 0.52, 0.50]}])
-    marble = tex("marble", "Mármore Carrara", (1.2, 1.2), 890.0, sku="PEDRA-CARR-120", finish="Pedra natural · placa 1,20 × 1,20 m",
+                             {"id": "mel", "name": "Honey", "tint": [1.05, 0.88, 0.70]},
+                             {"id": "fume", "name": "Smoke", "tint": [0.55, 0.52, 0.50]}])
+    marble = tex("marble", "Carrara marble", (1.2, 1.2), 890.0, sku="PEDRA-CARR-120", finish="Natural stone · 1.20 × 1.20 m slab",
                  gloss_keep=0.85,
-                 tint_variants=[{"id": "branco", "name": "Branco", "tint": [1, 1, 1]},
-                                {"id": "bege", "name": "Bege", "tint": [1.0, 0.9, 0.76]}])
-    concrete = tex("concrete", "Cimento queimado", (1.0, 1.0), 120.0, sku="CIM-QUEI-100", finish="Revestimento contínuo",
-                   tint_variants=[{"id": "cinza", "name": "Cinza", "tint": [1, 1, 1]},
-                                  {"id": "areia", "name": "Areia", "tint": [1.25, 1.12, 0.92]}])
-    checker = tex("checker", "Grade de teste", (1.0, 1.0), None, is_test=True, finish="1 tile = 1 m · célula = 10 cm")
+                 tint_variants=[{"id": "branco", "name": "White", "tint": [1, 1, 1]},
+                                {"id": "bege", "name": "Beige", "tint": [1.0, 0.9, 0.76]}])
+    concrete = tex("concrete", "Polished concrete", (1.0, 1.0), 120.0, sku="CIM-QUEI-100", finish="Seamless coating",
+                   tint_variants=[{"id": "cinza", "name": "Gray", "tint": [1, 1, 1]},
+                                  {"id": "areia", "name": "Sand", "tint": [1.25, 1.12, 0.92]}])
+    checker = tex("checker", "Test grid", (1.0, 1.0), None, is_test=True, finish="1 tile = 1 m · cell = 10 cm")
 
     def tones(*items):
         return [{"id": i, "name": n, "tint": t} for i, n, t in items]
 
-    linen = tex("linen", "Linho", (0.5, 0.5), 149.9, sku="TEC-LINHO-01", finish="Tecido · trama tela",
-                tint_variants=tones(("areia", "Areia", [1.0, 0.88, 0.70]), ("cinza", "Cinza", [0.72, 0.72, 0.72]),
-                                    ("oliva", "Oliva", [0.58, 0.60, 0.40]), ("terracota", "Terracota", [0.95, 0.52, 0.36]),
-                                    ("grafite", "Grafite", [0.30, 0.30, 0.31])))
-    rug = tex("rug", "Lã em laçadas", (1.0, 1.0), 220.0, sku="TAP-LA-01", finish="Tapete · lã natural",
-              tint_variants=tones(("cru", "Cru", [1.0, 0.94, 0.84]), ("cinza", "Cinza", [0.70, 0.70, 0.70]),
-                                  ("caramelo", "Caramelo", [0.92, 0.68, 0.44]), ("musgo", "Musgo", [0.55, 0.58, 0.42])))
+    linen = tex("linen", "Linen", (0.5, 0.5), 149.9, sku="TEC-LINHO-01", finish="Fabric · plain weave",
+                tint_variants=tones(("areia", "Sand", [1.0, 0.88, 0.70]), ("cinza", "Gray", [0.72, 0.72, 0.72]),
+                                    ("oliva", "Olive", [0.58, 0.60, 0.40]), ("terracota", "Terracotta", [0.95, 0.52, 0.36]),
+                                    ("grafite", "Graphite", [0.30, 0.30, 0.31])))
+    rug = tex("rug", "Looped wool", (1.0, 1.0), 220.0, sku="TAP-LA-01", finish="Rug · natural wool",
+              tint_variants=tones(("cru", "Raw", [1.0, 0.94, 0.84]), ("cinza", "Gray", [0.70, 0.70, 0.70]),
+                                  ("caramelo", "Caramel", [0.92, 0.68, 0.44]), ("musgo", "Moss", [0.55, 0.58, 0.42])))
 
     def solids(items, finish, gloss, price, sku):
         return [{"id": pid, "name": name, "albedo_color": _hex_to_linear(hx), "finish": f"{finish} · {hx}",
@@ -218,8 +218,8 @@ def library_procedural(kind: str) -> list[dict]:
     if kind == "rug":
         return [rug, linen, checker]
     if kind == "cabinet":
-        return [oak, *solids(LACQUERS, "Laca semibrilho", 0.5, 420.0, "LACA"), checker]
-    return [*solids(PAINTS, "Tinta acrílica fosca", 0.15, 38.0, "TINTA"), checker]
+        return [oak, *solids(LACQUERS, "Semi-gloss lacquer", 0.5, 420.0, "LACA"), checker]
+    return [*solids(PAINTS, "Matte acrylic paint", 0.15, 38.0, "TINTA"), checker]
 
 
 # --- Utilitários ----------------------------------------------------------------------
@@ -566,8 +566,8 @@ def run(args: argparse.Namespace) -> int:
         if s.id not in areas:
             areas[s.id] = round(visible_area_m2(uv, slot_mask[s.id]), 2)
             print(f"   área de {s.id}: {areas[s.id]} m² (estimada pela parte VISÍVEL; use --area {s.id}=… para o valor real)")
-        original = {"id": "original", "name": "Original do render", "keep_original": True,
-                    "thumbnail": f"{rel_cam}/thumb_original_{s.id}.webp", "finish": "Material do render, sem alteração"}
+        original = {"id": "original", "name": "Render original", "keep_original": True,
+                    "thumbnail": f"{rel_cam}/thumb_original_{s.id}.webp", "finish": "Render material, unchanged"}
         slots_json.append({
             "id": s.id,
             "name": s.name,
@@ -649,7 +649,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--project-name")
     ap.add_argument("--camera-name")
     ap.add_argument("--slot", type=parse_slot, action="append",
-                    help="canal:id:Nome:tipo (padrão: r:piso:Piso:floor, g:bancada:Mármore:stone, b:parede:Paredes:paint)")
+                    help="canal:id:Nome:tipo (padrão: r:piso:Floor:floor, g:bancada:Marble:stone, b:parede:Walls:paint)")
     ap.add_argument("--area", type=_kv(float), action="append", default=[], help="slot=m² (área real)")
     ap.add_argument("--tone", choices=["standard", "aces", "agx"], default="agx")
     ap.add_argument("--exposure", default="auto", help="'auto' ou número")

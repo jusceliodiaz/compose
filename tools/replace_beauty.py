@@ -6,7 +6,7 @@ Uso:
 A imagem nova costuma ter outro tamanho/enquadramento: ela é REGISTRADA (pontos SIFT + homografia) sobre o
 beauty atual da câmera e reamostrada para a resolução dos passes. Depois é levada ao mesmo espaço de luz do motor
 (inversa da curva de tone mapping do catálogo), as bordas entre superfícies são limpas e as miniaturas
-"Original do render" são refeitas. Os passes de luz/UV/máscaras não mudam.
+"Render original" são refeitas. Os passes de luz/UV/máscaras não mudam.
 
 Limites (avisados no fim):
   - o que a IA redesenhou (forma, objetos novos) não bate com as máscaras/UV;

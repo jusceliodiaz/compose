@@ -69,11 +69,11 @@ const brl = new Map<string, Intl.NumberFormat>();
 export function money(value: number, currency = 'BRL'): string {
   let f = brl.get(currency);
   if (!f) {
-    f = new Intl.NumberFormat('pt-BR', { style: 'currency', currency });
+    f = new Intl.NumberFormat('en-US', { style: 'currency', currency });
     brl.set(currency, f);
   }
   return f.format(value);
 }
 
 export const num = (x: number, digits = 2) =>
-  x.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  x.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });

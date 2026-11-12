@@ -208,7 +208,7 @@ def run_import():
     cat_360["project_id"] = "sala_estar_360"
     cat_360["project_name"] = "Living room - Panorama 360°"
     cat_360["camera"] = "cam360"
-    cat_360["camera_name"] = "Panorama 360°"
+    cat_360["camera_name"] = "360° panorama"
     cat_360["resolution"] = {"view": [w, h], "export": [w, h]}
     cat_360["is_360"] = True
     

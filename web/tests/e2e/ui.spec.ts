@@ -4,7 +4,7 @@ import { openApp } from './helpers';
 
 test('troca o material pela URL e confere o screenshot', async ({ page }) => {
   await openApp(page, '?floor=marble');
-  await expect(page.locator('.mat-card.is-active .mat-name')).toHaveText('Mármore Carrara');
+  await expect(page.locator('.mat-card.is-active .mat-name')).toHaveText('Carrara marble');
   await expect(page.locator('.frame')).toHaveClass(/is-ready/);
   await expect(page.locator('.frame-canvas')).toHaveScreenshot('floor-marble.png', { maxDiffPixelRatio: 0.01 });
 
@@ -18,12 +18,12 @@ test('troca o material pela URL e confere o screenshot', async ({ page }) => {
 
 test('a interface atualiza a URL (material, rotação, luz) e restaura ao recarregar', async ({ page }) => {
   await openApp(page);
-  await page.getByRole('radio', { name: /Mármore Carrara/ }).click();
+  await page.getByRole('radio', { name: /Carrara marble/ }).click();
   // "Ajustar textura" e "Iluminação" ficam sempre à vista
-  await expect(page.getByRole('heading', { name: 'Ajustar textura' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Iluminação' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Adjust texture' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lighting' })).toBeVisible();
   await page.getByRole('button', { name: '90°' }).click();
-  await page.getByRole('slider', { name: 'Intensidade' }).first().fill('1.5');
+  await page.getByRole('slider', { name: 'Intensity' }).first().fill('1.5');
   await expect.poll(() => page.url()).toContain('floor=marble');
   await expect.poll(() => page.url()).toContain('floor.rot=90');
   await expect.poll(() => page.url()).toContain('sun=1.5');
@@ -31,23 +31,23 @@ test('a interface atualiza a URL (material, rotação, luz) e restaura ao recarr
   await page.reload();
   await page.waitForFunction(() => (window as any).__compose?.ready);
   await page.evaluate(() => (window as any).__compose.ready);
-  await expect(page.locator('.mat-card.is-active .mat-name')).toHaveText('Mármore Carrara');
+  await expect(page.locator('.mat-card.is-active .mat-name')).toHaveText('Carrara marble');
   await expect(page.locator('#floor-rot')).toHaveValue('90');
   const st = await page.evaluate(() => (window as any).__compose.store.get());
   expect(st.lights.sun.intensity).toBe(1.5);
   // 29,76 m² × R$ 890,00
-  await expect(page.locator('.bud-total-val')).toContainText('26.486,40');
+  await expect(page.locator('.bud-total-val')).toContainText('26,486.40');
 });
 
 test('grade de teste e comparador antes/depois', async ({ page }) => {
   await openApp(page);
   await page.keyboard.press('t');
-  await expect(page.getByRole('button', { name: /Grade de teste/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: /Test grid/ })).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => page.url()).toContain('floor=checker');
   await page.keyboard.press('t');
   await expect.poll(() => page.url()).not.toContain('floor=checker');
 
-  await page.getByRole('button', { name: /Antes \/ depois/ }).click();
+  await page.getByRole('button', { name: /Before \/ after/ }).click();
   const box = (await page.locator('.frame').boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.25, box.y + box.height / 2);
   const split = await page.evaluate(() => (window as any).__compose.compositor.material.uniforms.u_splitX.value);
@@ -58,7 +58,7 @@ test('grade de teste e comparador antes/depois', async ({ page }) => {
 test('export: PNG na resolução esperada e idêntico ao render', async ({ page }) => {
   await openApp(page, '?floor=oak&floor.rot=30');
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: /Baixar imagem/ }).click();
+  await page.getByRole('button', { name: /Download image/ }).click();
   const file = await (await download).path();
   const png = readFileSync(file);
   expect(png.subarray(1, 4).toString()).toBe('PNG');
@@ -66,7 +66,7 @@ test('export: PNG na resolução esperada e idêntico ao render', async ({ page 
   const h = png.readUInt32BE(20);
   // o catálogo de teste pede 3840×2160 mas não tem passes de export → sai na resolução dos passes, com aviso
   expect([w, h]).toEqual([1920, 1080]);
-  await expect(page.locator('.toast')).toContainText('não é a resolução nativa');
+  await expect(page.locator('.toast')).toContainText('not the native export resolution');
 
   const diff = await page.evaluate(async () => {
     const c = (window as any).__compose;
@@ -95,7 +95,7 @@ test('clicar na superfície da imagem seleciona no painel; o destaque não vai p
     await page.mouse.move(x - 5, y);
     await page.mouse.move(x, y);
     return (await page.locator('.pick-tip').textContent()) ?? '';
-  }).toContain('Piso');
+  }).toContain('Floor');
   await expect(page.locator('.pick-tip')).toHaveClass(/is-visible/);
   const hovered = await page.evaluate(() => (window as any).__compose.compositor.material.uniforms.u_hoverAmount.value);
   expect(hovered).toBe(1);
@@ -114,7 +114,7 @@ test('clicar na superfície da imagem seleciona no painel; o destaque não vai p
   expect(same).toBe(0);
 
   await page.mouse.click(x, y);
-  await expect(page.getByRole('tab', { name: /Piso/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: /Floor/ })).toHaveAttribute('aria-selected', 'true');
 
   // parede (fora do slot): sem rótulo
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.08);
@@ -139,8 +139,8 @@ test('leque de 3 opções: prévia no hover, aplica no clique, Esc desfaz a pré
   }).toBe(3);
   const names = await page.locator('.qp-item').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
   // 1ª esfera = voltar ao padrão (carvalho, que já está aplicado → marcada); depois o trio sem repetir o padrão
-  expect(names[0]).toMatch(/Voltar ao original/);
-  expect(names[1]).toMatch(/Mármore/);
+  expect(names[0]).toMatch(/Back to original/);
+  expect(names[1]).toMatch(/marble/i);
   await expect(page.locator('.qp-item').first()).toHaveAttribute('aria-current', 'true');
 
   // prévia: muda o que aparece, não o que está salvo

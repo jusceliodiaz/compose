@@ -35,9 +35,9 @@ export interface StageTitle {
 const DEBUG_MODES: [DebugMode, string][] = [
   [DebugMode.Off, 'Final'],
   [DebugMode.UV, 'UV'],
-  [DebugMode.Masks, 'Máscaras'],
-  [DebugMode.DiffuseLight, 'Luz difusa'],
-  [DebugMode.Seams, 'Costuras'],
+  [DebugMode.Masks, 'Masks'],
+  [DebugMode.DiffuseLight, 'Diffuse light'],
+  [DebugMode.Seams, 'Seams'],
   [DebugMode.Albedo, 'Albedo'],
 ];
 
@@ -70,17 +70,17 @@ export class Stage {
   onResize: ((w: number, h: number) => void) | null = null;
 
   constructor(title: StageTitle, private readonly actions: StageActions) {
-    this.canvas = h('canvas', { class: 'frame-canvas', 'aria-label': 'Render configurado do ambiente', role: 'img' });
+    this.canvas = h('canvas', { class: 'frame-canvas', 'aria-label': 'Configured render of the room', role: 'img' });
     this.poster = h('img', { class: 'frame-poster', alt: '', decoding: 'async' });
     this.progress = h('div', { class: 'loader-bar' });
-    this.progressLabel = h('span', { class: 'loader-label' }, 'Preparando a cena…');
+    this.progressLabel = h('span', { class: 'loader-label' }, 'Preparing the scene…');
     this.handle = h(
       'div',
       {
         class: 'cmp-handle',
         role: 'slider',
         tabindex: 0,
-        'aria-label': 'Posição da cortina antes/depois',
+        'aria-label': 'Before/after divider position',
         'aria-valuemin': 0,
         'aria-valuemax': 100,
         'aria-valuenow': 50,
@@ -110,14 +110,14 @@ export class Stage {
         },
         icon(ic, 18),
       );
-    this.btnCompare = tool(ICONS.split, 'Antes / depois', 'C', () => this.setCompare(!this.comparing));
-    this.btnChecker = tool(ICONS.checker, 'Grade de teste', 'T', () => actions.onChecker());
-    const btnLink = tool(ICONS.link, 'Copiar link', null, () => actions.onCopyLink(), false);
-    this.btnPanel = tool(ICONS.sliders, 'Painel de personalização', 'P', () => actions.onTogglePanel());
+    this.btnCompare = tool(ICONS.split, 'Before / after', 'C', () => this.setCompare(!this.comparing));
+    this.btnChecker = tool(ICONS.checker, 'Test grid', 'T', () => actions.onChecker());
+    const btnLink = tool(ICONS.link, 'Copy link', null, () => actions.onCopyLink(), false);
+    this.btnPanel = tool(ICONS.sliders, 'Customization panel', 'P', () => actions.onTogglePanel());
     this.btnPanel.setAttribute('aria-pressed', 'true');
 
     this.memLabel = h('span', { class: 'dbg-mem' });
-    const seg = h('div', { class: 'dbg-seg', role: 'radiogroup', 'aria-label': 'Modo de depuração' });
+    const seg = h('div', { class: 'dbg-seg', role: 'radiogroup', 'aria-label': 'Debug mode' });
     for (const [mode, label] of DEBUG_MODES) {
       seg.append(
         h('button', { type: 'button', role: 'radio', 'aria-checked': String(mode === DebugMode.Off), 'data-mode': mode, onclick: () => this.setDebug(mode) }, label),
@@ -126,10 +126,10 @@ export class Stage {
     this.debugBar = h(
       'div',
       { class: 'dbg glass', hidden: true },
-      h('span', { class: 'dbg-title' }, icon(ICONS.scan, 15), 'Depuração'),
+      h('span', { class: 'dbg-title' }, icon(ICONS.scan, 15), 'Debug'),
       seg,
       this.memLabel,
-      h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Fechar depuração', onclick: () => this.toggleDebug(false) }, icon(ICONS.close, 15)),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close debug', onclick: () => this.toggleDebug(false) }, icon(ICONS.close, 15)),
     );
 
     this.toastEl = h('div', { class: 'toast', role: 'status', 'aria-live': 'polite' });
@@ -139,7 +139,7 @@ export class Stage {
       title.projects.length > 1
         ? h(
             'div',
-            { class: 'project-tabs', role: 'tablist', 'aria-label': 'Vistas' },
+            { class: 'project-tabs', role: 'tablist', 'aria-label': 'Views' },
             ...title.projects.map((p) =>
               h(
                 'button',
@@ -152,7 +152,7 @@ export class Stage {
                     if (p.id !== title.current) actions.onProject(p.id);
                   },
                 },
-                p.id === 'sala_estar_360' ? 'Panorama 360°' : (p.id === 'sala_estar' ? 'Câmera Principal' : p.name),
+                p.id === 'sala_estar_360' ? '360° panorama' : (p.id === 'sala_estar' ? 'Main camera' : p.name),
               ),
             ),
           )
@@ -172,10 +172,10 @@ export class Stage {
           projectEl,
           h('span', { class: 'cam-name' }, title.camera),
         ),
-        h('nav', { class: 'tools glass', 'aria-label': 'Ações do render' }, this.btnCompare, this.btnChecker, btnLink, h('span', { class: 'tools-sep', 'aria-hidden': 'true' }), this.btnPanel),
+        h('nav', { class: 'tools glass', 'aria-label': 'Render actions' }, this.btnCompare, this.btnChecker, btnLink, h('span', { class: 'tools-sep', 'aria-hidden': 'true' }), this.btnPanel),
       ),
-      h('span', { class: 'cmp-tag cmp-tag--before' }, 'Antes'),
-      h('span', { class: 'cmp-tag cmp-tag--after' }, 'Depois'),
+      h('span', { class: 'cmp-tag cmp-tag--before' }, 'Before'),
+      h('span', { class: 'cmp-tag cmp-tag--after' }, 'After'),
       h('div', { class: 'loader glass', role: 'status', 'aria-live': 'polite' }, this.progressLabel, this.progress),
       this.debugBar,
       this.toastEl,
@@ -222,7 +222,7 @@ export class Stage {
   setProgress(loaded: number, total: number): void {
     const pct = total ? (loaded / total) * 100 : 0;
     this.progress.style.setProperty('--pct', `${pct}%`);
-    this.progressLabel.textContent = total ? `Carregando a cena · ${loaded} de ${total}` : 'Preparando a cena…';
+    this.progressLabel.textContent = total ? `Loading the scene · ${loaded} of ${total}` : 'Preparing the scene…';
   }
 
   setReady(): void {
@@ -314,7 +314,7 @@ export class Stage {
       const label = this.actions.onHover(u, v);
       if (!label) return hide();
       const s = this.el.getBoundingClientRect();
-      this.tip.replaceChildren(h('strong', {}, label), h('span', {}, 'clique para trocar'));
+      this.tip.replaceChildren(h('strong', {}, label), h('span', {}, 'click to change'));
       this.tip.style.transform = `translate(${e.clientX - s.left + 14}px, ${e.clientY - s.top + 16}px)`;
       this.tip.classList.add('is-visible');
       this.frame.classList.add('is-pickable');

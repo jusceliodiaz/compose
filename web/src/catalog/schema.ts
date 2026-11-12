@@ -176,7 +176,7 @@ export interface NormalizedCatalog {
 
 export class CatalogError extends Error {
   constructor(public readonly problems: string[]) {
-    super(`Catálogo inválido:\n- ${problems.join('\n- ')}`);
+    super(`Invalid catalog:\n- ${problems.join('\n- ')}`);
     this.name = 'CatalogError';
   }
 }
@@ -199,15 +199,15 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
   const p: string[] = [];
   const notes: string[] = [];
   const c = raw as RawCatalog;
-  if (!c || typeof c !== 'object') throw new CatalogError(['o JSON não é um objeto']);
+  if (!c || typeof c !== 'object') throw new CatalogError(['the JSON is not an object']);
   if (c.schema_version !== undefined && c.schema_version !== 2 && c.schema_version !== 1) {
-    p.push(`schema_version ${c.schema_version} não suportado`);
+    p.push(`schema_version ${c.schema_version} not supported`);
   }
   if (!c.project_id) p.push('project_id ausente');
-  if (!c.camera) p.push('camera ausente');
+  if (!c.camera) p.push('camera missing');
   const bp = c.base_passes;
-  if (!bp?.beauty) p.push('base_passes.beauty ausente');
-  if (!Array.isArray(c.configurable_slots)) p.push('configurable_slots ausente');
+  if (!bp?.beauty) p.push('base_passes.beauty missing');
+  if (!Array.isArray(c.configurable_slots)) p.push('configurable_slots missing');
   if (p.length) throw new CatalogError(p);
 
   const url = (s: string) => resolveUrl(base, s);
@@ -216,19 +216,19 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
   let uv: CameraPasses['uv'];
   const range = (isVec(bp.uv_range, 4) ? bp.uv_range : [0, 0, 1, 1]) as [number, number, number, number];
   if (bp.uv_hi && bp.uv_lo) {
-    if (!isVec(bp.uv_range, 4)) p.push('uv_range obrigatório com uv_hi/uv_lo');
+    if (!isVec(bp.uv_range, 4)) p.push('uv_range is required with uv_hi/uv_lo');
     uv = { kind: 'u16_hilo', hi: url(bp.uv_hi), lo: url(bp.uv_lo), range };
   } else if (bp.uv_map) {
-    notes.push('UV em 8 bits (uv_map): a textura pode mostrar degraus; gere uv_hi/uv_lo com o pack_uv.py.');
+    notes.push('8-bit UV (uv_map): the texture may show banding; generate uv_hi/uv_lo with pack_uv.py.');
     uv = { kind: 'u8', map: url(bp.uv_map), range };
   } else {
-    p.push('sem UV: informe uv_hi/uv_lo ou uv_map');
+    p.push('no UV: provide uv_hi/uv_lo or uv_map');
     uv = { kind: 'u8', map: '', range };
   }
 
   if (!bp.diffuse_light) {
-    if (!bp.shadow_ao) p.push('sem diffuse_light e sem shadow_ao');
-    notes.push('Modo simplificado: sem diffuse_light, o material é iluminado por shadow_ao × cor média do beauty.');
+    if (!bp.shadow_ao) p.push('no diffuse_light and no shadow_ao');
+    notes.push('Simplified mode: without diffuse_light, the material is lit by shadow_ao × the average beauty color.');
   }
 
   // Máscaras: masks_packed[] + mask_ref → fallback mask individual (canal R)
@@ -246,16 +246,16 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
       channel = 'r';
       if (!maskFiles.includes(maskFile)) maskFiles.push(maskFile);
     } else {
-      p.push(`slot ${s.id}: sem mask_ref nem mask`);
+      p.push(`slot ${s.id}: no mask_ref or mask`);
       continue;
     }
     const key = `${maskFile}#${channel}`;
-    if (usedChannels.has(key)) p.push(`slot ${s.id}: canal de máscara repetido (${channel})`);
+    if (usedChannels.has(key)) p.push(`slot ${s.id}: duplicate mask channel (${channel})`);
     usedChannels.add(key);
 
     const slotGloss = isNum(s.gloss_keep) ? s.gloss_keep : DEFAULT_GLOSS_KEEP;
     const options: MaterialOption[] = (s.options ?? []).map((o) => {
-      if (!o.diffuse_map && !isVec(o.albedo_color, 3) && !o.keep_original) p.push(`${s.id}/${o.id}: sem diffuse_map nem albedo_color`);
+      if (!o.diffuse_map && !isVec(o.albedo_color, 3) && !o.keep_original) p.push(`${s.id}/${o.id}: no diffuse_map or albedo_color`);
       const size = isVec(o.texture_size_m, 2) ? (o.texture_size_m as Vec2) : null;
       const tiling: Vec2 = size
         ? [1 / size[0], 1 / size[1]]
@@ -281,7 +281,7 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
       };
     });
     if (!options.some((o) => o.id === s.default_texture)) {
-      p.push(`slot ${s.id}: default_texture '${s.default_texture}' não existe nas opções`);
+      p.push(`slot ${s.id}: default_texture '${s.default_texture}' is not among the options`);
     }
     const aut = s.allow_user_transform;
     // leque rápido: as do catálogo que existirem; senão, as 3 primeiras opções COM textura
@@ -312,8 +312,8 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
       quickOptions: quick.slice(0, 3),
     });
   }
-  if (slots.length > MAX_SLOTS) p.push(`no máximo ${MAX_SLOTS} slots por câmera (vieram ${slots.length})`);
-  if (maskFiles.length > 2) p.push('no máximo 2 arquivos de máscara por câmera');
+  if (slots.length > MAX_SLOTS) p.push(`at most ${MAX_SLOTS} slots per camera (got ${slots.length})`);
+  if (maskFiles.length > 2) p.push('at most 2 mask files per camera');
 
   const lgs = (c.light_groups ?? []).map<LightGroup>((g) => ({
     id: g.id,
@@ -323,11 +323,11 @@ export function normalizeCatalog(raw: unknown, base = '/'): NormalizedCatalog {
     kelvin: isNum(g.kelvin) ? g.kelvin : 6500,
     range: isVec(g.range, 2) ? (g.range as Vec2) : [0, 2],
   }));
-  if (lgs.length > MAX_LIGHT_GROUPS) p.push(`no máximo ${MAX_LIGHT_GROUPS} light groups`);
+  if (lgs.length > MAX_LIGHT_GROUPS) p.push(`at most ${MAX_LIGHT_GROUPS} light groups`);
   if (c.tone_mapping?.operator === 'lut') {
     const l = c.tone_mapping.lut;
     if (!l || !Array.isArray(l.values) || l.values.length < 2 || l.values.length > MAX_TONE_LUT) {
-      p.push(`tone_mapping.lut precisa de 2–${MAX_TONE_LUT} valores`);
+      p.push(`tone_mapping.lut needs 2–${MAX_TONE_LUT} values`);
     }
   }
 

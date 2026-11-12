@@ -114,7 +114,7 @@ export class Compositor {
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, preserveDrawingBuffer: false });
-    if (!this.renderer.capabilities.isWebGL2) throw new Error('Este navegador não tem WebGL2.');
+    if (!this.renderer.capabilities.isWebGL2) throw new Error('This browser does not support WebGL2.');
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // o shader já converte para sRGB
     this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -218,7 +218,7 @@ export class Compositor {
 
   async setCamera(catalog: NormalizedCatalog, cameraId: string, onProgress?: ProgressFn): Promise<void> {
     const cam = catalog.cameras.find((c) => c.id === cameraId) ?? catalog.cameras[0];
-    if (!cam) throw new Error('catálogo sem câmeras');
+    if (!cam) throw new Error('catalog has no cameras');
     const passes = await loadPassSet(cam, (u) => u, onProgress);
 
     this.disposePasses();
@@ -303,9 +303,9 @@ export class Compositor {
 
   async setSlotMaterial(slotId: string, optionId: string, variantId?: string | null): Promise<void> {
     const st = this.slots.get(slotId);
-    if (!st) throw new Error(`slot desconhecido: ${slotId}`);
+    if (!st) throw new Error(`unknown slot: ${slotId}`);
     const option = st.slot.options.find((o) => o.id === optionId);
-    if (!option) throw new Error(`opção desconhecida: ${slotId}/${optionId}`);
+    if (!option) throw new Error(`unknown option: ${slotId}/${optionId}`);
     const token = ++st.req;
     const albedo = await this.albedoFor(option);
     if (token !== st.req) return;
@@ -508,7 +508,7 @@ export class Compositor {
    */
   renderToPixels(width: number, height: number, passes?: PassSet): Uint8Array {
     const max = this.maxTextureSize;
-    if (width > max || height > max) throw new Error(`resolução ${width}×${height} acima do limite da GPU (${max})`);
+    if (width > max || height > max) throw new Error(`resolution ${width}×${height} exceeds the GPU limit (${max})`);
     const rt = new THREE.WebGLRenderTarget(width, height, {
       type: THREE.UnsignedByteType,
       format: THREE.RGBAFormat,
@@ -645,7 +645,7 @@ export async function loadPassSet(cam: CameraDef, mapUrl: (u: string) => string,
   let fallbackLight: Vec3 = [1, 1, 1];
   if (!diffLight) {
     fallbackLight = beauty instanceof THREE.DataTexture ? meanColor(beauty) : [0.5, 0.5, 0.5];
-    console.info('[compositor] modo simplificado: sem diffuse_light, usando shadow_ao × cor média do beauty', fallbackLight);
+    console.info('[compositor] simplified mode: no diffuse_light, using shadow_ao × average beauty color', fallbackLight);
   }
   const img = uvHi.image as { width: number; height: number };
   return {

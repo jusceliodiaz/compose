@@ -55,7 +55,7 @@ describe('normalizeCatalog', () => {
     raw.base_passes.uv_map = 'uv.png';
     const c = normalizeCatalog(raw);
     expect(c.cameras[0]!.passes.uv.kind).toBe('u8');
-    expect(c.notes.join(' ')).toMatch(/8 bits/);
+    expect(c.notes.join(' ')).toMatch(/8-bit UV/);
   });
 
   it('sem diffuse_light → modo simplificado (precisa de shadow_ao)', () => {
@@ -63,7 +63,7 @@ describe('normalizeCatalog', () => {
     delete raw.base_passes.diffuse_light;
     expect(() => normalizeCatalog(raw)).toThrow(CatalogError);
     raw.base_passes.shadow_ao = 'ao.png';
-    expect(normalizeCatalog(raw).notes.join(' ')).toMatch(/simplificado/);
+    expect(normalizeCatalog(raw).notes.join(' ')).toMatch(/Simplified mode/);
   });
 
   it('resolve caminhos contra a base', () => {
@@ -81,7 +81,7 @@ describe('normalizeCatalog', () => {
     } catch (e) {
       const msg = (e as CatalogError).problems.join(' | ');
       expect(msg).toMatch(/default_texture/);
-      expect(msg).toMatch(/repetido/);
+      expect(msg).toMatch(/duplicate/);
     }
   });
 });

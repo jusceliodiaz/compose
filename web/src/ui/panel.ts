@@ -60,13 +60,13 @@ export class Panel {
   ) {
     this.activeSlot = catalog.slots[0]?.id ?? '';
     this.head = h('div', { class: 'panel-head' });
-    this.dock = h('nav', { class: 'dock', role: 'tablist', 'aria-label': 'Superfícies' });
+    this.dock = h('nav', { class: 'dock', role: 'tablist', 'aria-label': 'Surfaces' });
     this.body = h('div', { class: 'panel-body', id: 'panel-body' });
     this.exportBtn = h(
       'button',
       { class: 'btn btn--primary', type: 'button', onclick: () => events.onExport() },
       icon(ICONS.download, 17),
-      h('span', { class: 'btn-label' }, 'Baixar imagem'),
+      h('span', { class: 'btn-label' }, 'Download image'),
     );
     const sheetToggle = h(
       'button',
@@ -81,12 +81,12 @@ export class Panel {
         },
       },
       h('span', { class: 'sheet-grab', 'aria-hidden': 'true' }),
-      h('span', { class: 'sheet-label' }, 'Personalizar'),
+      h('span', { class: 'sheet-label' }, 'Customize'),
       icon(ICONS.chevron, 18),
     );
     this.el = h(
       'aside',
-      { class: 'panel', 'aria-label': 'Personalização' },
+      { class: 'panel', 'aria-label': 'Customization' },
       sheetToggle,
       this.head,
       this.body,
@@ -115,10 +115,10 @@ export class Panel {
     this.body.scrollTop = 0;
   }
 
-  setBusy(busy: boolean, label = 'Gerando PNG…'): void {
+  setBusy(busy: boolean, label = 'Generating PNG…'): void {
     this.exportBtn.disabled = busy;
     this.exportBtn.classList.toggle('is-busy', busy);
-    this.exportBtn.querySelector('.btn-label')!.textContent = busy ? label : 'Baixar imagem';
+    this.exportBtn.querySelector('.btn-label')!.textContent = busy ? label : 'Download image';
   }
 
   private get slot(): Slot {
@@ -155,7 +155,7 @@ export class Panel {
     const slots = this.catalog.slots;
     const i = slots.findIndex((s) => s.id === this.activeSlot);
     const slot = this.slot;
-    const meta = [slot.areaM2 !== null ? `${num(slot.areaM2, 1)} m²` : null, `${featured(slot, this.store.get().slots[slot.id]!.option).length} acabamentos`]
+    const meta = [slot.areaM2 !== null ? `${num(slot.areaM2, 1)} m²` : null, `${featured(slot, this.store.get().slots[slot.id]!.option).length} finishes`]
       .filter(Boolean)
       .join(' · ');
     return h(
@@ -164,12 +164,12 @@ export class Panel {
       h(
         'div',
         { class: 'panel-id' },
-        h('p', { class: 'eyebrow' }, slots.length > 1 ? `Superfície ${two(i + 1)} / ${two(slots.length)}` : 'Superfície'),
+        h('p', { class: 'eyebrow' }, slots.length > 1 ? `Surface ${two(i + 1)} / ${two(slots.length)}` : 'Surface'),
         h('h2', { class: 'panel-title' }, slot.name),
         h('p', { class: 'panel-meta' }, meta),
       ),
       this.events.onClose
-        ? h('button', { class: 'panel-close', type: 'button', 'aria-label': 'Fechar personalização', onclick: () => this.events.onClose?.() }, icon(ICONS.close, 16))
+        ? h('button', { class: 'panel-close', type: 'button', 'aria-label': 'Close customization', onclick: () => this.events.onClose?.() }, icon(ICONS.close, 16))
         : null,
     );
   }
@@ -209,7 +209,7 @@ export class Panel {
     const slot = this.slot;
     const cfg = st.slots[slot.id]!;
     const visible = featured(slot, cfg.option);
-    const grid = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': `Acabamentos de ${slot.name}` });
+    const grid = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': `${slot.name} finishes` });
     for (const o of visible) {
       const on = o.id === cfg.option;
       const thumb = o.thumbnail
@@ -230,16 +230,16 @@ export class Panel {
           },
           h('span', { class: 'swatch' }, thumb, on ? h('span', { class: 'swatch-check' }, icon(ICONS.check, 13)) : null),
           h('span', { class: 'mat-name' }, o.name),
-          h('span', { class: 'mat-price', title: o.price ? 'por m²' : undefined }, o.price ? money(o.price.value, o.price.currency) : o.keepOriginal ? 'Incluso' : '—'),
+          h('span', { class: 'mat-price', title: o.price ? 'per m²' : undefined }, o.price ? money(o.price.value, o.price.currency) : o.keepOriginal ? 'Included' : '—'),
         ),
       );
     }
 
     const opt = slot.options.find((o) => o.id === cfg.option)!;
     const specs: [string, string][] = [];
-    if (opt.sizeM) specs.push(['Módulo', `${num(opt.sizeM[0])} × ${num(opt.sizeM[1])} m`]);
+    if (opt.sizeM) specs.push(['Module', `${num(opt.sizeM[0])} × ${num(opt.sizeM[1])} m`]);
     if (opt.sku) specs.push(['SKU', opt.sku]);
-    if (!opt.keepOriginal) specs.push(['Reflexo', `${Math.round(opt.glossKeep * 100)}%`]);
+    if (!opt.keepOriginal) specs.push(['Reflection', `${Math.round(opt.glossKeep * 100)}%`]);
 
     const detail = h(
       'div',
@@ -248,7 +248,7 @@ export class Panel {
         'div',
         { class: 'detail-head' },
         h('div', {},
-          h('p', { class: 'detail-kicker' }, opt.isTest ? 'Material de teste' : opt.keepOriginal ? 'Sem alteração' : 'Selecionado'),
+          h('p', { class: 'detail-kicker' }, opt.isTest ? 'Test material' : opt.keepOriginal ? 'Unchanged' : 'Selected'),
           h('h3', { class: 'detail-title' }, opt.name),
         ),
         opt.price ? h('p', { class: 'detail-price' }, money(opt.price.value, opt.price.currency), h('span', {}, '/m²')) : null,
@@ -267,13 +267,13 @@ export class Panel {
               },
             },
             icon(ICONS.reset, 15),
-            'Voltar ao original',
+            'Back to original',
           )
         : null,
     );
 
     if (opt.tintVariants.length > 1) {
-      const vs = h('div', { class: 'tones', role: 'radiogroup', 'aria-label': 'Tonalidade' });
+      const vs = h('div', { class: 'tones', role: 'radiogroup', 'aria-label': 'Tone' });
       for (const v of opt.tintVariants) {
         const b = h(
           'button',
@@ -291,7 +291,7 @@ export class Panel {
           b.setAttribute('aria-checked', String(on));
         });
       }
-      detail.append(h('p', { class: 'field-label' }, 'Tonalidade'), vs);
+      detail.append(h('p', { class: 'field-label' }, 'Tone'), vs);
     }
 
     return h(
@@ -315,23 +315,23 @@ export class Panel {
 
     const sliders: ['scale' | 'rotation' | 'ox' | 'oy', Slider][] = [
       ['scale', slider({
-        id: id('scale'), label: 'Escala', min: smin, max: smax, step: 0.05, value: cfg.scale, reset: 1,
+        id: id('scale'), label: 'Scale', min: smin, max: smax, step: 0.05, value: cfg.scale, reset: 1,
         format: (v) => `${num(v)}×`, onInput: (v) => set({ scale: v }),
-        hint: opt.sizeM ? `1× = tamanho real (${num(opt.sizeM[0])} × ${num(opt.sizeM[1])} m)` : undefined,
+        hint: opt.sizeM ? `1× = real size (${num(opt.sizeM[0])} × ${num(opt.sizeM[1])} m)` : undefined,
         disabled: solid || smin === smax,
       })],
       ['rotation', slider({
-        id: id('rot'), label: 'Rotação', min: 0, max: 360, step: 1, value: cfg.rotation, reset: 0,
+        id: id('rot'), label: 'Rotation', min: 0, max: 360, step: 1, value: cfg.rotation, reset: 0,
         format: (v) => `${Math.round(v)}°`, onInput: (v) => set({ rotation: v }),
         disabled: solid || !slot.allowRotation,
       })],
       ['ox', slider({
-        id: id('ox'), label: 'Deslocamento X', min: 0, max: 1, step: 0.01, value: cfg.ox, reset: 0,
+        id: id('ox'), label: 'Offset X', min: 0, max: 1, step: 0.01, value: cfg.ox, reset: 0,
         format: (v) => `${Math.round(v * 100)}%`, onInput: (v) => set({ ox: v }),
         disabled: solid || !slot.allowOffset,
       })],
       ['oy', slider({
-        id: id('oy'), label: 'Deslocamento Y', min: 0, max: 1, step: 0.01, value: cfg.oy, reset: 0,
+        id: id('oy'), label: 'Offset Y', min: 0, max: 1, step: 0.01, value: cfg.oy, reset: 0,
         format: (v) => `${Math.round(v * 100)}%`, onInput: (v) => set({ oy: v }),
         disabled: solid || !slot.allowOffset,
       })],
@@ -341,18 +341,18 @@ export class Panel {
       for (const [k, sl] of sliders) sl.set(c[k]);
     });
 
-    const quick = h('div', { class: 'chips', role: 'group', 'aria-label': 'Rotação rápida' });
+    const quick = h('div', { class: 'chips', role: 'group', 'aria-label': 'Quick rotation' });
     for (const deg of [0, 45, 90]) {
       const b = h('button', { class: 'chip', type: 'button', disabled: solid || !slot.allowRotation, onclick: () => set({ rotation: deg }) }, `${deg}°`);
       quick.append(b);
       this.updaters.push((s) => b.classList.toggle('is-active', s.slots[slot.id]!.rotation === deg));
     }
     const note = opt.keepOriginal
-      ? 'Material original do render: não há ajustes de textura.'
-      : 'Cor sólida: escala e rotação não se aplicam.';
+      ? 'Original render material: no texture adjustments.'
+      : 'Solid color: scale and rotation do not apply.';
 
     return this.section(
-      'Ajustar textura',
+      'Adjust texture',
       (s) => {
         const c = s.slots[slot.id]!;
         return solid ? '—' : `${num(c.scale)}× · ${Math.round(c.rotation)}°`;
@@ -365,7 +365,7 @@ export class Panel {
         'button',
         { class: 'text-btn', type: 'button', disabled: solid, onclick: () => set({ scale: 1, rotation: 0, ox: 0, oy: 0 }) },
         icon(ICONS.reset, 15),
-        'Restaurar ajustes',
+        'Reset adjustments',
       ),
     );
   }
@@ -375,12 +375,12 @@ export class Panel {
   private lights(st: ConfigState): HTMLElement {
     const cam = this.catalog.cameras.find((c) => c.id === st.cam)!;
     const exposure = slider({
-      id: 'exposure', label: 'Exposição', min: -EV_RANGE, max: EV_RANGE, step: 0.1, value: st.ev, reset: 0,
+      id: 'exposure', label: 'Exposure', min: -EV_RANGE, max: EV_RANGE, step: 0.1, value: st.ev, reset: 0,
       format: fmtEv,
       onInput: (v) => this.store.update((d) => {
         d.ev = Math.round(v * 10) / 10;
       }),
-      hint: 'Ajusta a cena inteira. 0 = exposição original do render.',
+      hint: 'Adjusts the whole scene. 0 = original render exposure.',
     });
     this.updaters.push((s) => exposure.set(s.ev));
 
@@ -390,11 +390,11 @@ export class Panel {
       const stops = [kmin, (kmin + kmax) / 2, kmax].map((k) => kelvinToCss(k)).join(', ');
       const dot = h('span', { class: 'light-dot' });
       const inten = slider({
-        id: `lg-${g.id}-i`, label: 'Intensidade', min: g.range[0], max: g.range[1], step: 0.05, value: l.intensity,
+        id: `lg-${g.id}-i`, label: 'Intensity', min: g.range[0], max: g.range[1], step: 0.05, value: l.intensity,
         reset: g.intensity, format: (v) => `${num(v)}×`, onInput: (v) => this.store.setLight(g.id, { intensity: v }),
       });
       const temp = slider({
-        id: `lg-${g.id}-k`, label: 'Temperatura', min: kmin, max: kmax, step: 50, value: l.kelvin, reset: g.kelvin,
+        id: `lg-${g.id}-k`, label: 'Temperature', min: kmin, max: kmax, step: 50, value: l.kelvin, reset: g.kelvin,
         format: (v) => `${Math.round(v)} K`, onInput: (v) => this.store.setLight(g.id, { kelvin: v }),
         track: `linear-gradient(90deg, ${stops})`,
       });
@@ -414,17 +414,17 @@ export class Panel {
     });
 
     return this.section(
-      'Iluminação',
+      'Lighting',
       (s) => {
         const changed = cam.lightGroups.filter((g) => {
           const c = s.lights[g.id]!;
           return c.intensity !== g.intensity || c.kelvin !== g.kelvin;
         }).length;
-        return `${fmtEv(s.ev)}${cam.lightGroups.length ? ` · ${changed ? `${changed} ajustada${changed > 1 ? 's' : ''}` : 'original'}` : ''}`;
+        return `${fmtEv(s.ev)}${cam.lightGroups.length ? ` · ${changed ? `${changed} adjusted` : 'original'}` : ''}`;
       },
       exposure.el,
       ...groups,
-      cam.lightGroups.length ? null : h('p', { class: 'note' }, 'Esta câmera não tem grupos de luz.'),
+      cam.lightGroups.length ? null : h('p', { class: 'note' }, 'This camera has no light groups.'),
       h(
         'button',
         {
@@ -437,7 +437,7 @@ export class Panel {
             }),
         },
         icon(ICONS.reset, 15),
-        'Voltar à luz original',
+        'Back to original lighting',
       ),
     );
   }
@@ -464,7 +464,7 @@ export class Panel {
       );
       total.textContent = money(b.total, b.currency);
       const n = this.catalog.slots.filter((sl) => s.slots[sl.id]?.option !== sl.defaultOption).length;
-      count.textContent = n ? `${n} ${n === 1 ? 'alterada' : 'alteradas'}` : 'Original';
+      count.textContent = n ? `${n} changed` : 'Original';
     });
     return h(
       'footer',
@@ -475,11 +475,11 @@ export class Panel {
         h(
           'summary',
           { class: 'bud-sum' },
-          h('span', { class: 'bud-label' }, h('span', {}, 'Total estimado', icon(ICONS.chevron, 13)), count),
+          h('span', { class: 'bud-label' }, h('span', {}, 'Estimated total', icon(ICONS.chevron, 13)), count),
           total,
         ),
         lines,
-        h('p', { class: 'bud-note' }, 'Área × preço por m². Valores de referência.'),
+        h('p', { class: 'bud-note' }, 'Area × price per m². Reference values.'),
       ),
       this.exportBtn,
     );

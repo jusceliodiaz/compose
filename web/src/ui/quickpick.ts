@@ -90,13 +90,13 @@ export class QuickPick {
           })
         : h('span', { class: 'qp-img', style: `background:${linToCss(o.albedoColor)}` });
       const isCurrent = o.id === current.option && (isReset || c.variantId === null || c.variantId === current.variant);
-      const name = isReset ? 'Voltar ao original' : variant ? `${o.name} ${variant.name.toLowerCase()}` : o.name;
+      const name = isReset ? 'Back to original' : variant ? `${o.name} ${variant.name.toLowerCase()}` : o.name;
       return h(
         'button',
         {
           class: `qp-item${isCurrent ? ' is-current' : ''}${isReset ? ' qp-item--reset' : ''}`,
           type: 'button',
-          'aria-label': o.price ? `${name}, ${money(o.price.value, o.price.currency)} por m²` : name,
+          'aria-label': o.price ? `${name}, ${money(o.price.value, o.price.currency)} per m²` : name,
           'aria-current': isCurrent ? 'true' : null,
           style: `--dx:${Math.cos(a) * radius}px; --dy:${Math.sin(a) * radius}px; --i:${i}`,
           onpointerenter: () => this.events.onPreview(c),
@@ -125,14 +125,14 @@ export class QuickPick {
           this.events.onMore();
         },
       },
-      `Todas as opções · ${slot.name}`,
+      `All options · ${slot.name}`,
     );
 
     this.el.replaceChildren(h('span', { class: 'qp-dot' }), ...items, more);
     this.el.classList.toggle('qp--down', !up);
     this.el.style.left = `${cx}px`;
     this.el.style.top = `${y}px`;
-    this.el.setAttribute('aria-label', `Trocar ${slot.name}`);
+    this.el.setAttribute('aria-label', `Change ${slot.name}`);
     this.el.hidden = false;
     this.el.classList.remove('is-open', 'is-closing', 'is-settled');
     void this.el.offsetWidth; // reinicia a animação

@@ -6,7 +6,7 @@ Uso:
   python tools/update_catalog_materials.py <catalogo.json> --kind piso=floor --kind sofa=fabric   # catálogos antigos
 
 O tipo de cada superfície vem de "material_kind" (gravado pelo import_corona.py) ou de --kind.
-A opção "Original do render" e as escolhas que ainda existirem são mantidas.
+A opção "Render original" e as escolhas que ainda existirem são mantidas.
 """
 
 from __future__ import annotations

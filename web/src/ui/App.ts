@@ -200,7 +200,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
     const cur = store.get().slots[slotId];
     const test = testOption(slotId);
     if (!cur || !test) {
-      stage.toast('Este catálogo não tem material de teste.', 'warn');
+      stage.toast('This catalog has no test material.', 'warn');
       return;
     }
     if (cur.option === test.id) {
@@ -210,7 +210,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
     } else {
       previousOption.set(slotId, cur.option);
       store.setSlot(slotId, { option: test.id, variant: null });
-      stage.toast('Grade de teste: 1 tile = 1 m, célula = 10 cm.');
+      stage.toast('Test grid: 1 tile = 1 m, cell = 10 cm.');
     }
   }
 
@@ -224,9 +224,9 @@ export async function startApp(root: HTMLElement): Promise<void> {
     const url = `${location.origin}${location.pathname}?project=${encodeURIComponent(project.id)}&${serializeState(store.get(), catalog)}`;
     try {
       await navigator.clipboard.writeText(url);
-      stage.toast('Link da configuração copiado.');
+      stage.toast('Configuration link copied.');
     } catch {
-      window.prompt('Copie o link da configuração:', url);
+      window.prompt('Copy the configuration link:', url);
     }
   }
 
@@ -239,10 +239,10 @@ export async function startApp(root: HTMLElement): Promise<void> {
       const opts = Object.values(s.slots).map((c) => c.option).join('-');
       downloadBlob(r.blob, `${catalog.projectId}_${s.cam}_${opts}_${r.width}x${r.height}.png`);
       if (r.note) stage.toast(r.note, 'warn', 6500);
-      else stage.toast(`Imagem exportada em ${r.width}×${r.height}.`);
+      else stage.toast(`Image exported at ${r.width}×${r.height}.`);
     } catch (e) {
       console.error(e);
-      stage.toast(`Não foi possível exportar: ${(e as Error).message}`, 'warn', 6500);
+      stage.toast(`Export failed: ${(e as Error).message}`, 'warn', 6500);
     } finally {
       panel.setBusy(false);
       void reportMemory();
@@ -279,15 +279,15 @@ export async function startApp(root: HTMLElement): Promise<void> {
     await apply(store.get(), null);
     compositor.render();
     const pk = new Picker(catalog);
-    pk.load().then(() => (picker = pk), (e) => console.warn('[compose] seleção por clique indisponível:', e));
+    pk.load().then(() => (picker = pk), (e) => console.warn('[compose] click selection unavailable:', e));
     stage.setReady();
-    if (compositor.isPanorama) stage.toast('Panorama 360°: arraste para olhar em volta · role para zoom.', 'ok', 5000);
+    if (compositor.isPanorama) stage.toast('360° panorama: drag to look around · scroll to zoom.', 'ok', 5000);
     store.subscribe((s, prev) => {
       void apply(s, prev);
       writeUrl(s);
     });
     const mb = await compositor.gpuMemoryMB();
-    console.info(`[compose] memória de GPU estimada (texturas): ${mb.toFixed(1)} MB`);
+    console.info(`[compose] estimated GPU memory (textures): ${mb.toFixed(1)} MB`);
     stage.setMemory(mb, compositor.renders);
   })();
   handle.ready.catch((e) => {
@@ -298,7 +298,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
 
 function errorScreen(e: unknown): HTMLElement {
   const msg = e instanceof Error ? e.message : String(e);
-  const missing = /catálogo|404|Failed to fetch/i.test(msg);
+  const missing = /catalog|404|Failed to fetch/i.test(msg);
   return h(
     'div',
     { class: 'empty' },
@@ -306,11 +306,11 @@ function errorScreen(e: unknown): HTMLElement {
       'div',
       { class: 'empty-card' },
       h('span', { class: 'empty-icon' }, icon(ICONS.alert, 22)),
-      h('h1', { class: 'empty-title' }, missing ? 'Nenhuma cena encontrada' : 'Algo deu errado'),
-      h('p', { class: 'empty-text' }, missing ? 'Gere a sala de teste sintética e recarregue a página:' : msg),
+      h('h1', { class: 'empty-title' }, missing ? 'No scene found' : 'Something went wrong'),
+      h('p', { class: 'empty-text' }, missing ? 'Generate the synthetic test room and reload the page:' : msg),
       missing ? h('pre', { class: 'empty-code' }, 'python tools/make_test_assets.py') : null,
       missing ? h('p', { class: 'empty-small' }, msg) : null,
-      h('button', { class: 'btn btn--primary', type: 'button', onclick: () => location.reload() }, icon(ICONS.rotate, 16), h('span', { class: 'btn-label' }, 'Recarregar')),
+      h('button', { class: 'btn btn--primary', type: 'button', onclick: () => location.reload() }, icon(ICONS.rotate, 16), h('span', { class: 'btn-label' }, 'Reload')),
     ),
   );
 }

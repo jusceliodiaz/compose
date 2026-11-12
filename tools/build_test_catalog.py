@@ -40,9 +40,9 @@ def catalog(uv_range: list[float], w: int, h: int) -> dict:
     return {
         "schema_version": 2,
         "project_id": "test_room",
-        "project_name": "Sala de teste",
+        "project_name": "Test room",
         "camera": "cam_main",
-        "camera_name": "Vista principal",
+        "camera_name": "Main view",
         "resolution": {"view": [w, h], "export": [w * 2, h * 2]},
         "tone_mapping": dict(mta.TONE),
         "base_passes": {
@@ -58,40 +58,40 @@ def catalog(uv_range: list[float], w: int, h: int) -> dict:
             "masks_packed": [{"file": f"{CAM}/masks_a.png", "channels": {"r": "floor"}}],
         },
         "light_groups": [
-            {"id": "sun", "name": "Sol da janela", "pass": f"{CAM}/lg_sun.exr",
+            {"id": "sun", "name": "Window sun", "pass": f"{CAM}/lg_sun.exr",
              "intensity": 1.0, "kelvin": 5600, "range": [0, 3]},
-            {"id": "ceiling", "name": "Luz ambiente", "pass": f"{CAM}/lg_ceiling.exr",
+            {"id": "ceiling", "name": "Ambient light", "pass": f"{CAM}/lg_ceiling.exr",
              "intensity": 1.0, "kelvin": 4000, "range": [0, 3]},
         ],
         "configurable_slots": [
             {
                 "id": "floor",
-                "name": "Piso",
+                "name": "Floor",
                 "mask_ref": {"file": 0, "channel": "r"},
                 "default_texture": "oak",
                 "allow_user_transform": {"scale": [0.5, 2.0], "rotation": True, "offset": True},
                 "gloss_keep": 0.6,
                 "area_m2": area,
                 "options": [
-                    material("oak", "Carvalho em régua", sizes["oak"], 189.9, sku="PISO-CARV-001",
-                             finish="Madeira · réguas 1,20 × 0,20 m",
+                    material("oak", "Oak planks", sizes["oak"], 189.9, sku="PISO-CARV-001",
+                             finish="Wood · 1.20 × 0.20 m planks",
                              tint_variants=[
                                  {"id": "natural", "name": "Natural", "tint": [1.0, 1.0, 1.0]},
-                                 {"id": "mel", "name": "Mel", "tint": [1.05, 0.88, 0.70]},
-                                 {"id": "fume", "name": "Fumê", "tint": [0.55, 0.52, 0.50]},
+                                 {"id": "mel", "name": "Honey", "tint": [1.05, 0.88, 0.70]},
+                                 {"id": "fume", "name": "Smoke", "tint": [0.55, 0.52, 0.50]},
                              ]),
-                    material("marble", "Mármore Carrara", sizes["marble"], 890.0, sku="PEDRA-CARR-120",
-                             finish="Pedra natural · placa 1,20 × 1,20 m", gloss_keep=0.85),
-                    material("concrete", "Cimento queimado", sizes["concrete"], 120.0, sku="CIM-QUEI-100",
-                             finish="Revestimento contínuo",
+                    material("marble", "Carrara marble", sizes["marble"], 890.0, sku="PEDRA-CARR-120",
+                             finish="Natural stone · 1.20 × 1.20 m slab", gloss_keep=0.85),
+                    material("concrete", "Polished concrete", sizes["concrete"], 120.0, sku="CIM-QUEI-100",
+                             finish="Seamless coating",
                              tint_variants=[
-                                 {"id": "cinza", "name": "Cinza", "tint": [1.0, 1.0, 1.0]},
-                                 {"id": "areia", "name": "Areia", "tint": [1.25, 1.12, 0.92]},
+                                 {"id": "cinza", "name": "Gray", "tint": [1.0, 1.0, 1.0]},
+                                 {"id": "areia", "name": "Sand", "tint": [1.25, 1.12, 0.92]},
                              ]),
-                    {"id": "original", "name": "Original do render", "albedo_color": [mta.FLOOR_ALBEDO] * 3,
-                     "finish": "Cor do render, sem textura", "gloss_keep": 1.0},
-                    material("checker", "Grade de teste", (1.0, 1.0), None, is_test=True,
-                             finish="1 tile = 1 m · célula = 10 cm"),
+                    {"id": "original", "name": "Render original", "albedo_color": [mta.FLOOR_ALBEDO] * 3,
+                     "finish": "Render color, no texture", "gloss_keep": 1.0},
+                    material("checker", "Test grid", (1.0, 1.0), None, is_test=True,
+                             finish="1 tile = 1 m · cell = 10 cm"),
                 ],
             }
         ],
@@ -112,7 +112,7 @@ def build_all(assets: Path) -> Path:
     cat_path.parent.mkdir(parents=True, exist_ok=True)
     cat_path.write_text(json.dumps(catalog(rng, w, h), indent=2, ensure_ascii=False), encoding="utf-8")
     # a sala sintética é para testes: existe (?project=test_room), mas não aparece no menu
-    update_index(cat_path.parent, "test_room", "Sala de teste", listed=False)
+    update_index(cat_path.parent, "test_room", "Test room", listed=False)
     print(f"catálogo: {cat_path}  uv_range = {[round(v, 4) for v in rng]}")
     return cat_path
 
